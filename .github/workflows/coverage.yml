@@ -1,0 +1,66 @@
+name: Coverage Verification
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  coverage:
+    name: Run test coverage
+    runs-on: ubuntu-latest
+
+    # Permissions to update pull-requests with comment-bot
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake lcov jq
+
+    - name: Generate coverage report
+      run: |
+        make coverage | tee coverage_output.txt
+
+    # Parsing "lcov --summary" output and generating markdown-table
+    - name: Parse coverage summary
+      id: parse_coverage
+      run: |
+        echo "### Code coverage report" > coverage_summary.md
+        echo "" >> coverage_summary.md
+        echo "| Metric | Coverage Rate | Executed / Total |" >> coverage_summary.md
+        echo "| ------ | ------------- | ---------------- |" >> coverage_summary.md
+
+        # Filtering lines by keywords lcov (lines, functions, branches)
+        cat coverage_output.txt | grep -E "lines\.*:|functions\.*:|branches\.*:" | sed -E 's/\s+/ /g' > coverage_filtered.txt || true
+        while read -r line; do
+          # Get metrik and remove : at the end
+          METRIC=$(echo "$line" | cut -d':' -f1 | tr -d '.' | tr -d ' ')
+          # Get percent
+          PERCENT=$(echo "$line" | grep -oE "[0-9.]+%" || echo "0%")
+          # Get details (for example, (1234 of 1445 lines))
+          DETAILS=$(echo "$line" | grep -oE "\([0-9]+ of [0-9]+.*\)" || echo "(N/A)")
+
+          if [ "$METRIC" = "lines" ]; then METRIC="Lines"; fi
+          if [ "$METRIC" = "functions" ]; then METRIC="Functions"; fi
+          if [ "$METRIC" = "branches" ]; then METRIC="Branches"; fi
+
+          echo "| **$METRIC** | $PERCENT | $DETAILS |" >> coverage_summary.md
+        done < coverage_filtered.txt
+        rm -f coverage_filtered.txt
+
+        # Add link to current build
+        echo "" >> coverage_summary.md
+        echo "[Full CI workflow run](\${{ github.server_url }}/ github.repository /actions/runs/{{ github.run_id }})" >> coverage_summary.md
+
+    # Print and update comment into pull-request
+    - name: Post PR sticky comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: code-coverage-report # Comment id
+        path: coverage_summary.md

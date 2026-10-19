@@ -1,0 +1,70 @@
+name: Deploy code coverage
+
+on:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-coverage:
+    name: Build and Deploy Coverage Report
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake lcov jq
+
+    - name: Create gh-pages branch
+      run: |
+        if ! git ls-remote --exit-code --heads origin gh-pages; then
+          echo "Branch gh-pages not found. Creating a clean empty branch..."
+          git checkout --orphan gh-pages
+          git rm -rf .
+          git commit --allow-empty -m "Initial commit for gh-pages"
+          git push origin gh-pages
+          git checkout -
+        else
+          echo "Branch gh-pages exists."
+        fi
+
+    - name: Generate coverage report
+      run: |
+        make coverage
+
+    - name: Deploy report
+      run: |
+          # 1. Configure git
+          git config --global user.name "github-action-coverage"
+          git config --global user.email "github@users.noreply.github.com"
+
+          # 2. Save report into temp directory
+          mkdir -p /tmp/coverage_report
+          cp -r build_coverage/__coverage/report/* /tmp/coverage_report/
+
+          # 3. Checkout to branch gh-pages
+          git fetch origin gh-pages
+          git checkout gh-pages
+
+          # 4. Remove old report
+          rm -rf coverage/*
+          # 5. Save new report
+          cp -r /tmp/coverage_report/* coverage/
+
+          # 6. Add changes and create commit
+          git add coverage
+          # Check changes
+          if git diff-index --quiet HEAD --; then
+            echo "No changes in coverage report."
+          else
+            git commit -m "docs/coverage: Update coverage report [skip ci];"
+            git push origin gh-pages
+          fi
