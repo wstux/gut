@@ -1,0 +1,64 @@
+name: Performance benchmarks
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: write
+  deployments: write
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: PR Performance Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Build project
+      run: make
+
+    - name: Run google benchmarks
+      run: |
+        ./build_release/test/perf_test_1 --benchmark_format=json > perf_1.json
+        ./build_release/test/perf_test_2 --benchmark_format=json > perf_2.json
+
+        # Merge two Google Benchmark json-files into one valid oblect.
+        # jq tahes heades (context) from first file and merges tests arrays (benchmarks).
+        jq -s '.[0] * {benchmarks: ([.[].benchmarks] | add)}' perf_1.json perf_2.json > perf_common.json
+
+    - name: Disable commit-msg hooks for bot
+      run: rm -rf .git/hooks/commit-msg
+
+    - name: Create gh-pages branch
+      run: |
+        if ! git ls-remote --exit-code --heads origin gh-pages; then
+          echo "Branch gh-pages not found. Creating a clean empty branch..."
+          git checkout --orphan gh-pages
+          git rm -rf .
+          git commit --allow-empty -m "Initial commit for gh-pages"
+          git push origin gh-pages
+          git checkout -
+        else
+          echo "Branch gh-pages exists."
+        fi
+
+    - name: Store results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'googlecpp'
+        output-file-path: perf_common.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: ${{ github.event_name == 'push' }} # Update history charts only on push to master
+        comment-on-alert: true                        # Post a performance change report in the PR comments
+        fail-on-alert: false                          # Do not fail verification if performance drops

@@ -1,0 +1,52 @@
+#!/bin/sh
+# The MIT License
+#
+# Copyright (c) 2025 Chistyakov Alexander
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+unset GREP_OPTIONS
+
+# Redirect output to stderr.
+exec 1>&2
+
+MSG="$1"
+first_line="$(sed -n '1p' ${MSG})"
+second_line="$(sed -n '2p' ${MSG})"
+
+if ! echo "${first_line}" |
+      grep -Eq "[-+=*] [^#]+[^[:space:]]: .+[^[:space:]];\$"; then
+    cat <<\EOF
+Error: First line of commit message is incorrect.
+
+Commit message format is '[-+=*] place: Message;'
+
+Incorrect commit message.
+EOF
+    exit 1
+fi
+
+if ! echo "${second_line}" | grep -Eq "[\n]?\$"; then
+    cat <<\EOF
+Error: Second line in commit message must be empty.
+
+Incorrect commit message.
+EOF
+    exit 1
+fi
