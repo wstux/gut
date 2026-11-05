@@ -27,17 +27,7 @@
 
 #include <sys/stat.h>
 
-#include <cerrno>
 #include <cstddef>
-
-#define RETRY_EINTR(expr)                                                       \
-    __extension__ ({                                                            \
-        long int __rc;                                                          \
-        do {                                                                    \
-            __rc = (long int)(expr);                                            \
-        } while (__rc == -1L && errno == EINTR);                                \
-        __rc;                                                                   \
-    })
 
 namespace wstux {
 namespace gut {

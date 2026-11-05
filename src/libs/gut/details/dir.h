@@ -60,11 +60,7 @@ public:
 
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 
-    ::time_t mtime() const
-    {
-        struct ::stat64 info;
-        return (RETRY_EINTR(::fstat64(m_fd, &info)) == 0) ? info.st_mtime : -1;
-    }
+    ::time_t mtime() const { return utils::mtime(m_fd); }
 
     std::string_view name() const { return m_name; }
 

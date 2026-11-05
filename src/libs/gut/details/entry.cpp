@@ -28,6 +28,7 @@
 #include <cstring>
 
 #include "gut/details/entry.h"
+#include "gut/details/retry_eintr.h"
 
 namespace wstux {
 namespace gut {

@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/file.h>
 
+#include "gut/details/retry_eintr.h"
 #include "gut/details/utils.h"
 
 namespace wstux {
