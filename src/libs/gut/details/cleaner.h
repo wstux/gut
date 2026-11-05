@@ -41,7 +41,7 @@ class cleaner final
 public:
     using ptr = std::shared_ptr<cleaner>;
 
-    explicit cleaner(const is_stop_fn_t& is_stop_fn);
+    explicit cleaner(is_stop_fn_t is_stop_fn);
 
     /**
      *  \brief  Adds a directory to the queue for deferred cleanup.

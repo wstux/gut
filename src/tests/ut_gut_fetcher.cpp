@@ -95,7 +95,8 @@ public:
         std::filesystem::path tmp_path = m_tmp_path / filename;
         int fd = ::open(tmp_path.string().c_str(), O_CREAT | O_WRONLY, 0644);
         ASSERT_TRUE(fd >= 0);
-        ::write(fd, "test_data", 9);
+        const ssize_t rc = ::write(fd, "test_data", 9);
+        ASSERT_TRUE(rc == 9);
         ::close(fd);
 
         std::filesystem::path target_path = m_work_path / primary_dir / active_dir / filename;

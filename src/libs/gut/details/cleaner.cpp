@@ -34,8 +34,8 @@ namespace wstux {
 namespace gut {
 namespace details {
 
-cleaner::cleaner(const is_stop_fn_t& is_stop_fn)
-    : m_is_stop_fn(is_stop_fn)
+cleaner::cleaner(is_stop_fn_t is_stop_fn)
+    : m_is_stop_fn(std::move(is_stop_fn))
 {}
 
 bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
@@ -107,7 +107,8 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
 
             if (info.st_nlink < 1 || ::time(nullptr) - info.st_mtime < file_gap_seconds) {
                 busy_record_t& record = m_busy_pool[m_busy_pool_size++];
-                ::strncpy(record.data(), p_ent->d_name, record.size() - 1);
+                //::strncpy(record.data(), p_ent->d_name, record.size() - 1);
+                std::memcpy(record.data(), p_ent->d_name, record.size() - 1);
                 record.back() = '\0';
 
                 if (info.st_nlink >= 1) {
