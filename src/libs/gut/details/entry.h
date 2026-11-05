@@ -56,7 +56,7 @@ public:
     //void reset() {}
 
 private:
-    char m_name[utils::gk_filename_buffer_size];
+    char m_name[gk_filename_buffer_size];
     int m_fd = -1;
     tmp_dir::ptr m_p_parent_dir;
 };

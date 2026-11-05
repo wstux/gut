@@ -31,6 +31,7 @@
 #include <string>
 #include <string_view>
 
+#include "gut/details/generator.h"
 #include "gut/details/utils.h"
 
 namespace wstux {
@@ -79,7 +80,7 @@ private:
     const int m_parent_fd = -1;
 
     int m_fd = -1;
-    char m_name[utils::gk_name_buffer_size];
+    char m_name[gk_name_buffer_size];
 };
 
 class dir_t final

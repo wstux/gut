@@ -126,7 +126,7 @@ bool fetcher::change_primary_dir()
                 if (dir_name == "." || dir_name == "..") {
                     continue;
                 }
-                assert(dir_name.size() == utils::gk_name_length);
+                assert(dir_name.size() == gk_name_length);
                 //m_active_pool.push_back(p_ent->d_name);
                 m_active_pool.emplace(p_ent->d_name);
             }
@@ -222,7 +222,7 @@ bool fetcher::load_primary()
             if (dir_name == "." || dir_name == "..") {
                 continue;
             }
-            assert(dir_name.size() == utils::gk_name_length);
+            assert(dir_name.size() == gk_name_length);
             //m_primary_pool.push_back(p_ent->d_name);
             m_primary_pool.emplace(p_ent->d_name);
         }

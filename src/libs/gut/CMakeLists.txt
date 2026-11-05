@@ -5,6 +5,7 @@ LibTarget(gut STATIC
         details/cleaner.cpp
         details/dir.cpp
         details/entry.cpp
+        details/generator.cpp
         details/item.cpp
         details/queue.cpp
         details/utils.cpp

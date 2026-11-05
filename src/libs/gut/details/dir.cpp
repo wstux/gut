@@ -78,17 +78,17 @@ tmp_dir::tmp_dir(int parent_fd)
 tmp_dir::tmp_dir(const char* p_name, int parent_fd)
     : m_parent_fd(parent_fd)
 {
-    assert(::strlen(p_name) == utils::gk_name_length);
-    ::memcpy(m_name, p_name, utils::gk_name_length);
-    m_name[utils::gk_name_length] = '\0';
+    assert(::strlen(p_name) == gk_name_length);
+    ::memcpy(m_name, p_name, gk_name_length);
+    m_name[gk_name_length] = '\0';
 }
 
 tmp_dir::tmp_dir(const std::string_view& name, int parent_fd)
     : m_parent_fd(parent_fd)
 {
-    assert(name.size() == utils::gk_name_length);
-    ::memcpy(m_name, name.data(), utils::gk_name_length);
-    m_name[utils::gk_name_length] = '\0';
+    assert(name.size() == gk_name_length);
+    ::memcpy(m_name, name.data(), gk_name_length);
+    m_name[gk_name_length] = '\0';
 }
 
 tmp_dir::~tmp_dir()
@@ -111,7 +111,7 @@ bool tmp_dir::create()
     assert(! utils::is_open(m_fd));
 
     while (true) {
-        utils::gen_name(m_name, sizeof(m_name));
+        generate_name(m_name, sizeof(m_name));
 
         constexpr int mkdirat_flags = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; // 0755
         const int rc = RETRY_EINTR(::mkdirat(m_parent_fd, m_name, mkdirat_flags));

@@ -46,19 +46,7 @@ namespace utils {
 
 using stat_t = struct ::stat64;
 
-constexpr size_t gk_name_length_mcs = 9;
-constexpr size_t gk_name_length_ns = 11;
-
-constexpr size_t gk_name_length = gk_name_length_mcs;
-constexpr size_t gk_name_buffer_size = gk_name_length + 1;
-
-constexpr size_t gk_filename_ext_length = 4;
-constexpr size_t gk_filename_length = gk_name_length + gk_filename_ext_length;
-constexpr size_t gk_filename_buffer_size = gk_filename_length + 1;
-
 bool close(int& fd);
-
-void gen_name(char* p_bufer, size_t size);
 
 bool is_alive(int fd);
 
