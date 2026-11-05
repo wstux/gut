@@ -27,9 +27,9 @@
 
 #include <set>
 
-#include "gut/details/cleaner.h"
 #include "gut/details/dir.h"
 #include "gut/details/types.h"
+#include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
 namespace gut {

@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/cleaner.h"
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace {
@@ -51,7 +51,7 @@ public:
         m_work_path = m_root_path / "queue";
         ASSERT_TRUE(std::filesystem::create_directory(m_work_path)) << "Failed to create work directory '" << m_work_path << "'";
 
-        m_p_cleaner = std::make_shared<details::cleaner>([]() -> bool { return false; });
+        m_p_cleaner = std::make_shared<details::fq::cleaner>([]() -> bool { return false; });
     }
 
     void TearDown() override
@@ -84,7 +84,7 @@ private:
 private:
     std::filesystem::path m_root_path;
     std::filesystem::path m_work_path;
-    details::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner::ptr m_p_cleaner;
 };
 
 } // <anonymous> namespace

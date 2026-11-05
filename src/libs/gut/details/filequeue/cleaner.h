@@ -35,6 +35,7 @@
 namespace wstux {
 namespace gut {
 namespace details {
+namespace fq {
 
 class cleaner final
 {
@@ -87,6 +88,7 @@ private:
     circular_buffer<tmp_dir::ptr, k_queue_size> m_dir_queue;
 };
 
+} // namespace fq
 } // namespace details
 } // namespace gut
 } // namespace wstux

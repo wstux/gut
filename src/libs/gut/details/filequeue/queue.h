@@ -30,10 +30,10 @@
 #include <string>
 #include <string_view>
 
-#include "gut/details/cleaner.h"
 #include "gut/details/dir.h"
 #include "gut/details/entry.h"
 #include "gut/details/types.h"
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/fetcher.h"
 
 namespace wstux {

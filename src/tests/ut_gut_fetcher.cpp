@@ -33,8 +33,8 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/cleaner.h"
 #include "gut/details/dir.h"
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/fetcher.h"
 
 namespace {
@@ -59,7 +59,7 @@ public:
 
         m_p_work_dir = std::make_shared<details::dir_t>(m_work_path.string());
         ASSERT_TRUE(m_p_work_dir->open());
-        m_p_cleaner = std::make_shared<details::cleaner>([]() -> bool { return false; });
+        m_p_cleaner = std::make_shared<details::fq::cleaner>([]() -> bool { return false; });
     }
 
     void TearDown() override
@@ -128,7 +128,7 @@ private:
     std::filesystem::path m_tmp_path;
     std::filesystem::path m_work_path;
     std::shared_ptr<details::dir_t> m_p_work_dir;
-    details::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner::ptr m_p_cleaner;
 };
 
 } // <anonymous> namespace

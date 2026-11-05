@@ -30,13 +30,14 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/cleaner.h"
 #include "gut/details/dir.h"
+#include "gut/details/filequeue/cleaner.h"
 
 namespace {
 
 namespace gut = ::wstux::gut;
 namespace details = gut::details;
+namespace fq = gut::details::fq;
 
 class cleaner_fixture : public ::testing::Test
 {
@@ -131,7 +132,7 @@ private:
 
 TEST_F(cleaner_fixture, remove_dir)
 {
-    details::cleaner cleaner([]() -> bool { return false; });
+    fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000001");
 
     EXPECT_TRUE(cleaner.push(p_dir));
@@ -141,7 +142,7 @@ TEST_F(cleaner_fixture, remove_dir)
 
 TEST_F(cleaner_fixture, non_empty_dir)
 {
-    details::cleaner cleaner([]() -> bool { return false; });
+    fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000002");
 
     int file_fd = create_file(p_dir, "randitem2.dat");
@@ -157,7 +158,7 @@ TEST_F(cleaner_fixture, non_empty_dir)
 
 TEST_F(cleaner_fixture, DISABLED_locked_file)
 {
-    details::cleaner cleaner([]() -> bool { return false; });
+    fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000003");
 
     int file_fd = create_file(p_dir, "randitem3.dat");
@@ -174,7 +175,7 @@ TEST_F(cleaner_fixture, DISABLED_locked_file)
 
 TEST_F(cleaner_fixture, file_timeout_to_remove)
 {
-    details::cleaner cleaner([]() -> bool { return false; });
+    fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000004");
 
     int file_fd = create_file(p_dir, "randitem4.dat");
@@ -191,7 +192,7 @@ TEST_F(cleaner_fixture, file_timeout_to_remove)
 
 TEST_F(cleaner_fixture, dir_timeout_to_remove)
 {
-    details::cleaner cleaner([]() -> bool { return false; });
+    fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000005");
 
     cleaner.push(p_dir);
