@@ -22,27 +22,133 @@
  * THE SOFTWARE.
  */
 
+#include <cassert>
+#include <filesystem>
+
 #include "gut/queue.h"
 
 namespace wstux {
 namespace gut {
+namespace {
+
+std::string make_queue_path(const std::string_view& root_path, const std::string_view& queue_name)
+{
+    assert(root_path.size() > 0);
+
+    std::filesystem::path path = root_path;
+    path = path / queue_name;
+    return path.string();
+}
+
+}
 
 queue::queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_input(path, details::bucket::entry_type::input, m_is_stop_fn)
-    , m_proc(path, details::bucket::entry_type::process, m_is_stop_fn)
-    , m_outpit(path, details::bucket::entry_type::output, m_is_stop_fn)
+    , m_p_cleaner(std::make_shared<details::cleaner>(m_is_stop_fn))
+    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
+    , m_output(make_queue_path(path, "output"), m_p_cleaner, m_is_stop_fn)
+{}
+
+queue::queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
+    : m_path(path)
+    , m_is_stop_fn(is_stop_fn)
+    , m_p_cleaner(std::make_shared<details::cleaner>(m_is_stop_fn))
+    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
+    , m_output(make_queue_path(out_path, "input"), m_p_cleaner, m_is_stop_fn)
 {}
 
 item::ptr queue::create()
 {
-    return item::ptr();
+    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+
+    if (! m_proc.create_item(p_item->m_entry)) {
+        assert(! p_item->m_entry.is_alive());
+        p_item.reset();
+    } else {
+        assert(p_item->m_entry.is_alive());
+    }
+    return p_item;
 }
 
-item::ptr queue::get(size_t /*wait_ms*/, bool /*is_read_only*/)
+queue::ptr queue::create_queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn)
 {
-    return item::ptr();
+    namespace fs = std::filesystem;
+
+    if (path.empty()) {
+        return nullptr;
+    }
+
+    std::error_code error;
+    fs::create_directories(path, error);
+    if (error) {
+        return nullptr;
+    }
+
+    fs::perms perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read;
+    fs::permissions(path, perms, error);
+    if (error) {
+        return nullptr;
+    }
+    return std::make_unique<queue>(path, is_stop_fn);
+}
+
+queue::ptr queue::create_queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
+{
+    namespace fs = std::filesystem;
+
+    if (path.empty() || out_path.empty()) {
+        return nullptr;
+    }
+
+    {
+        // Create queue dirs
+        std::error_code error;
+        if (! fs::create_directories(path, error)) {
+            return nullptr;
+        }
+
+        fs::perms perms = fs::perms::owner_all | fs::perms::group_all | fs::perms::others_read;
+        fs::permissions(path, perms, error);
+        if (error) {
+            return nullptr;
+        }
+    }
+
+    {
+        // Create output dirs
+        std::error_code error;
+        const fs::path out_dir = fs::path(out_path) / "input";
+        if (fs::create_directories(out_dir, error)) {
+            return nullptr;
+        }
+
+        fs::perms perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read;
+        fs::permissions(out_path, perms, error);
+        if (error) {
+            return nullptr;
+        }
+        fs::permissions(out_dir, perms, error);
+        if (error) {
+            return nullptr;
+        }
+    }
+    return std::make_unique<queue>(path, out_path, is_stop_fn);
+}
+
+item::ptr queue::pop(size_t /*wait_ms*/)
+{
+    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+
+    if (! m_input.pop_item(p_item->m_entry, m_proc)) {
+        assert(! p_item->m_entry.is_alive());
+        p_item.reset();
+    } else {
+        assert(p_item->m_entry.is_alive());
+    }
+    return p_item;
 }
 
 } // namespace gut

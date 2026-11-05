@@ -22,41 +22,51 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_BUCKET_H_
-#define _LIBS_GUT_DETAILS_BUCKET_H_
+#include <cassert>
 
-#include <string>
-#include <string_view>
-
-#include "gut/details/types.h"
+#include "gut/item.h"
+#include "gut/queue.h"
 
 namespace wstux {
 namespace gut {
-namespace details {
 
-class bucket final
+item::item(details::fq::queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn)
+    : m_is_stop_fn(is_stop_fn)
+    , m_p_commit_queue(p_commit_queue)
+    , m_p_rollback_queue(p_rollback_queue)
+{}
+
+bool item::commit()
 {
-public:
-    enum class entry_type
-    {
-        input,
-        output,
-        process
-    };
+    assert(m_entry.is_alive());
+    assert(m_p_commit_queue);
+    assert(! m_p_current_queue);
 
-public:
-    bucket(const std::string_view& root_dir, const entry_type type, const is_stop_fn_t& is_stop_fn);
+    const bool rc = m_p_commit_queue->push_item(m_entry);
+    if (rc) {
+        m_p_current_queue = m_p_commit_queue;
+        m_entry.close();
+        return true;
+    }
 
-private:
-    static std::string work_dir(const std::string_view& root_dir, const entry_type type);
+    return false;
+}
 
-private:
-    const is_stop_fn_t m_is_stop_fn;
-    std::string m_work_dir;
-};
+bool item::rollback()
+{
+    assert(m_entry.is_alive());
+    assert(m_p_rollback_queue);
+    assert(! m_p_current_queue);
 
-} // namespace details
+    const bool rc = m_p_rollback_queue->push_item(m_entry);
+    if (rc) {
+        m_p_current_queue = m_p_rollback_queue;
+        m_entry.close();
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace gut
 } // namespace wstux
-
-#endif /* _LIBS_GUT_DETAILS_BUCKET_H_ */
