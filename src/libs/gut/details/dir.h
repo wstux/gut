@@ -119,7 +119,7 @@ public:
     dir_reader(dir_reader&& other) noexcept;
     dir_reader& operator=(dir_reader&& other) noexcept;
 
-    ~dir_reader();
+    ~dir_reader() { close(); }
 
     void close() noexcept;
 
