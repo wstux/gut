@@ -26,12 +26,14 @@
 #define _LIBS_GUT_QUEUE_H_
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
 #include "gut/item.h"
-#include "gut/details/bucket.h"
+#include "gut/details/cleaner.h"
 #include "gut/details/types.h"
+#include "gut/details/filequeue/queue.h"
 
 namespace wstux {
 namespace gut {
@@ -39,22 +41,40 @@ namespace gut {
 class queue final
 {
 public:
+    using ptr = std::unique_ptr<queue>;
     using is_stop_fn_t = details::is_stop_fn_t;
 
 public:
-    queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn);
-
     item::ptr create();
 
-    item::ptr get(size_t wait_ms, bool is_read_only);
+    const std::string path() const { return m_path; }
+
+    item::ptr pop(size_t wait_ms);
+
+    static ptr create_queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn);
+
+    static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn);
+
+private:
+    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const ::wstux::gut::details::is_stop_fn_t&);
+    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::string_view&,
+        const ::wstux::gut::details::is_stop_fn_t&);
+
+    queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn);
+
+    queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn);
+
+    details::fq::queue& input_queue() { return m_input; }
 
 private:
     const std::string m_path;
     const is_stop_fn_t m_is_stop_fn;
 
-    details::bucket m_input;
-    details::bucket m_proc;
-    details::bucket m_outpit;
+    details::cleaner::ptr m_p_cleaner;
+
+    details::fq::queue m_input;
+    details::fq::queue m_proc;
+    details::fq::queue m_output;
 };
 
 } // namespace gut

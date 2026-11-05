@@ -22,41 +22,47 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_BUCKET_H_
-#define _LIBS_GUT_DETAILS_BUCKET_H_
+#ifndef _LIBS_GUT_DETAILS_ENTRY_H_
+#define _LIBS_GUT_DETAILS_ENTRY_H_
 
-#include <string>
 #include <string_view>
 
-#include "gut/details/types.h"
+#include "gut/details/dir.h"
+#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
 
-class bucket final
+class entry final
 {
 public:
-    enum class entry_type
-    {
-        input,
-        output,
-        process
-    };
+    entry();
 
-public:
-    bucket(const std::string_view& root_dir, const entry_type type, const is_stop_fn_t& is_stop_fn);
+    ~entry();
+
+    void close();
+
+    bool create(const tmp_dir::ptr& p_dir, const std::string_view& name);
+
+    bool is_alive() const;
+
+    bool move(const tmp_dir::ptr& p_new_parent_dir);
+
+    std::string_view name() const { return m_name; }
+
+    bool open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name);
+
+    //void reset() {}
 
 private:
-    static std::string work_dir(const std::string_view& root_dir, const entry_type type);
-
-private:
-    const is_stop_fn_t m_is_stop_fn;
-    std::string m_work_dir;
+    char m_name[utils::gk_filename_buffer_size];
+    int m_fd = -1;
+    tmp_dir::ptr m_p_parent_dir;
 };
 
 } // namespace details
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_DETAILS_BUCKET_H_ */
+#endif /* _LIBS_GUT_DETAILS_ENTRY_H_ */
