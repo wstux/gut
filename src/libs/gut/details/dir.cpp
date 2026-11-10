@@ -73,6 +73,15 @@ bool open_dir(int& fd, const int parent_fd, const char* p_path)
 tmp_dir::tmp_dir(int parent_fd)
     : m_parent_fd(parent_fd)
 {
+    assert(utils::is_open(m_parent_fd));
+    m_name[0] = '\0';
+}
+
+tmp_dir::tmp_dir(const ptr& p_parent)
+    : m_p_parent(p_parent)
+    , m_parent_fd(m_p_parent->fd())
+{
+    assert(utils::is_open(m_parent_fd));
     m_name[0] = '\0';
 }
 
@@ -87,6 +96,16 @@ tmp_dir::tmp_dir(const char* p_name, int parent_fd)
 tmp_dir::tmp_dir(const std::string_view& name, int parent_fd)
     : m_parent_fd(parent_fd)
 {
+    assert(name.size() == gk_name_length);
+    ::memcpy(m_name, name.data(), gk_name_length);
+    m_name[gk_name_length] = '\0';
+}
+
+tmp_dir::tmp_dir(const std::string_view& name, const ptr& p_parent)
+    : m_p_parent(p_parent)
+    , m_parent_fd(m_p_parent->fd())
+{
+    assert(utils::is_open(m_parent_fd));
     assert(name.size() == gk_name_length);
     ::memcpy(m_name, name.data(), gk_name_length);
     m_name[gk_name_length] = '\0';

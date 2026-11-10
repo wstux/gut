@@ -92,7 +92,18 @@ queue::ptr queue::create_queue(const std::string_view& path, const is_stop_fn_t&
     if (error) {
         return nullptr;
     }
-    return std::make_unique<queue>(path, is_stop_fn);
+    //return std::make_unique<queue>(path, is_stop_fn);
+    queue::ptr p_queue = std::make_unique<queue>(path, is_stop_fn);
+    if (! p_queue->m_input.start()) {
+        return nullptr;
+    }
+    if (! p_queue->m_proc.start()) {
+        return nullptr;
+    }
+    if (! p_queue->m_output.start()) {
+        return nullptr;
+    }
+    return p_queue;
 }
 
 queue::ptr queue::create_queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
@@ -121,7 +132,8 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
         // Create output dirs
         std::error_code error;
         const fs::path out_dir = fs::path(out_path) / "input";
-        if (fs::create_directories(out_dir, error)) {
+        fs::create_directories(out_dir, error);
+        if (error) {
             return nullptr;
         }
 
@@ -135,7 +147,17 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
             return nullptr;
         }
     }
-    return std::make_unique<queue>(path, out_path, is_stop_fn);
+    queue::ptr p_queue = std::make_unique<queue>(path, out_path, is_stop_fn);
+    if (! p_queue->m_input.start()) {
+        return nullptr;
+    }
+    if (! p_queue->m_proc.start()) {
+        return nullptr;
+    }
+    if (! p_queue->m_output.start()) {
+        return nullptr;
+    }
+    return p_queue;
 }
 
 item::ptr queue::pop(size_t /*wait_ms*/)

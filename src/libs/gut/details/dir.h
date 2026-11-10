@@ -46,9 +46,13 @@ public:
 public:
     explicit tmp_dir(int parent_fd);
 
+    explicit tmp_dir(const ptr& p_parent);
+
     tmp_dir(const char* p_name, int parent_fd);
 
     tmp_dir(const std::string_view& name, int parent_fd);
+
+    tmp_dir(const std::string_view& name, const ptr& p_parent);
 
     ~tmp_dir();
 
@@ -57,6 +61,8 @@ public:
     bool create();
 
     int fd() const { return m_fd; }
+
+    bool is_open() const { return utils::is_open(m_fd); }
 
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 
@@ -73,6 +79,7 @@ public:
     void unlock() const { utils::unlock(m_fd); }
 
 private:
+    const ptr m_p_parent;
     const int m_parent_fd = -1;
 
     int m_fd = -1;
@@ -127,6 +134,8 @@ public:
     bool opendir(const char* p_path) noexcept;
 
     bool opendir(int fd) noexcept;
+
+    bool opendir(const tmp_dir::ptr& p_parent) noexcept { return opendir(p_parent->fd()); }
 
     struct ::dirent* readdir() const noexcept;
 

@@ -35,7 +35,7 @@
 
 #include "gut/details/dir.h"
 #include "gut/details/filequeue/cleaner.h"
-#include "gut/details/filequeue/fetcher.h"
+#include "gut/details/filequeue/tail.h"
 
 namespace {
 
@@ -43,7 +43,7 @@ namespace gut = ::wstux::gut;
 namespace details = gut::details;
 namespace fq = gut::details::fq;
 
-class fetcher_fixture : public ::testing::Test
+class fq_tail_fixture : public ::testing::Test
 {
 public:
     void SetUp() override
@@ -78,9 +78,11 @@ public:
         ASSERT_TRUE(std::filesystem::create_directories(path)) << "Failed to create directory '" << path << "'";
     }
 
-    fq::fetcher make_fetcher()
+    fq::tail make_tail()
     {
-        return fq::fetcher(*m_p_work_dir, m_p_cleaner, []() { return false; });
+        fq::tail tail = fq::tail(*m_p_work_dir, m_p_cleaner, []() { return false; });
+        init_tail(tail);
+        return tail;
     }
 
     details::tmp_dir::ptr make_tmp_dir(const std::string& dir_name, const int parent_fd) const
@@ -111,6 +113,12 @@ public:
     const details::dir_t& work_dir() const { return *m_p_work_dir; }
 
 private:
+    void init_tail(fq::tail& tail)
+    {
+        ASSERT_TRUE(tail.start());
+    }
+
+private:
     static std::filesystem::path make_tmp_dir(const std::string& prefix)
     {
         std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
@@ -133,37 +141,37 @@ private:
 
 } // <anonymous> namespace
 
-TEST_F(fetcher_fixture, scan_existing_files)
+TEST_F(fq_tail_fixture, scan_existing_files)
 {
     create_dirs("000000001", "000000002");
     move_file("000000001", "000000002", "randitem1.dat");
 
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem1.dat") << filename;
     ASSERT_TRUE(p_out_dir.get() != nullptr);
     EXPECT_TRUE(p_out_dir->name() == "000000002") << p_out_dir->name();
 }
 
-TEST_F(fetcher_fixture, empty_queue)
+TEST_F(fq_tail_fixture, empty_queue)
 {
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename.empty());
     EXPECT_TRUE(p_out_dir.get() == nullptr);
 }
 
-TEST_F(fetcher_fixture, detects_subdirs)
+TEST_F(fq_tail_fixture, detects_subdirs)
 {
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
 
     std::thread writer_thread([this]() {
         create_dirs("000000003", "000000004");
@@ -175,20 +183,20 @@ TEST_F(fetcher_fixture, detects_subdirs)
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem2.dat") << filename;
     writer_thread.join();
 }
 
-TEST_F(fetcher_fixture, add_item_to_queue_head)
+TEST_F(fq_tail_fixture, add_item_to_queue_head)
 {
     create_dirs("000000005", "000000006");
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
 
     std::thread writer_thread([this]() {
         move_file("000000005", "000000006", "randitem3.dat");
@@ -196,27 +204,27 @@ TEST_F(fetcher_fixture, add_item_to_queue_head)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem3.dat") << filename;
     writer_thread.join();
 }
 
-TEST_F(fetcher_fixture, evicts_to_cleaner)
+TEST_F(fq_tail_fixture, evicts_to_cleaner)
 {
     create_dirs("000000007", "000000008");
     create_dirs("000000007", "000000009");
     move_file("000000007", "000000008", "randitem4.dat");
 
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem4.dat") << filename;
 
     remove_file("000000007", "000000008", "randitem4.dat");
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(cleaner_step());
 }
 

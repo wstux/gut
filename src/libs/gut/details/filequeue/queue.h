@@ -34,7 +34,9 @@
 #include "gut/details/entry.h"
 #include "gut/details/types.h"
 #include "gut/details/filequeue/cleaner.h"
-#include "gut/details/filequeue/fetcher.h"
+//#include "gut/details/filequeue/fetcher.h"
+#include "gut/details/filequeue/head.h"
+#include "gut/details/filequeue/tail.h"
 
 namespace wstux {
 namespace gut {
@@ -48,29 +50,34 @@ public:
 
     bool create_item(entry& e, const std::string_view& name = std::string_view());
 
+
     bool open();
 
     bool pop_item(entry& e, queue& target);
 
     bool push_item(entry& e);
 
+    bool start();
+
 private:
-    tmp_dir::ptr rotate(bool force_rotation);
+    //tmp_dir::ptr rotate(bool force_rotation);
 
 private:
     const is_stop_fn_t m_is_stop_fn;
 
-    std::mutex m_dir_mutex;
-    std::condition_variable m_dir_cv;
-    bool m_is_rotating_process = false;
+    //std::mutex m_dir_mutex;
+    //std::condition_variable m_dir_cv;
+    //bool m_is_rotating_process = false;
     dir_t m_root_dir;
-    tmp_dir::ptr m_p_primary_dir;
-    tmp_dir::ptr m_p_active_dir;
+    //tmp_dir::ptr m_p_primary_dir;
+    //tmp_dir::ptr m_p_active_dir;
 
     cleaner::ptr m_p_cleaner;
     size_t m_cleaner_ts = 0;
 
-    fetcher m_fetcher;
+    head m_queue_head;
+    tail m_queue_tail;
+    //fetcher m_fetcher;
 };
 
 } // namespace fq

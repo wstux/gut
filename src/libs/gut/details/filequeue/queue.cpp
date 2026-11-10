@@ -36,8 +36,8 @@ namespace details {
 namespace fq {
 namespace {
 
-bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
-{
+//bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
+//{
     /**
      *  \brief  Upper limit of the system directory file size to trigger rotation.
      *  \details    In Linux (ext4), a directory is a special type of file that
@@ -54,13 +54,13 @@ bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
      *      - reduces the frequency of 'mkdir' system calls.
      */
     //constexpr size_t k_dir_size_limt = 64 * 1024; // 64 kB
-    constexpr size_t k_dir_size_limt = 32 * 1024; // 32 kB
+/*    constexpr size_t k_dir_size_limt = 32 * 1024; // 32 kB
 
     if (p_dir.get()) {
         return (p_dir->size() < k_dir_size_limt);
     }
     return false;
-}
+}*/
 
 size_t monotime()
 {
@@ -72,7 +72,7 @@ size_t monotime()
     return static_cast<size_t>(::time(nullptr));
 }
 
-bool rotate_tmp_dir(const int patent_fd, tmp_dir::ptr& p_dir)
+/*bool rotate_tmp_dir(const int patent_fd, tmp_dir::ptr& p_dir)
 {
     assert(utils::is_open(patent_fd));
     p_dir = std::make_shared<tmp_dir>(patent_fd);
@@ -82,7 +82,7 @@ bool rotate_tmp_dir(const int patent_fd, tmp_dir::ptr& p_dir)
     }
 
     return true;
-}
+}*/
 
 } // <anonymous> namespace
 
@@ -90,13 +90,15 @@ queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, co
     : m_is_stop_fn(is_stop_fn)
     , m_root_dir(root_dir)
     , m_p_cleaner(p_cleaner)
-    , m_fetcher(m_root_dir, m_p_cleaner, m_is_stop_fn)
+    , m_queue_head(m_root_dir, m_is_stop_fn)
+    , m_queue_tail(m_root_dir, m_p_cleaner, m_is_stop_fn)
+    //, m_fetcher(m_root_dir, m_p_cleaner, m_is_stop_fn)
 {}
 
 bool queue::create_item(entry& e, const std::string_view& name)
 {
     assert(! e.is_alive());
-    tmp_dir::ptr p_active_dir = rotate(false);
+    tmp_dir::ptr p_active_dir = m_queue_head.get_active_dir(false);//rotate(false);
     if (! p_active_dir) {
         return false;
     }
@@ -121,7 +123,8 @@ bool queue::pop_item(entry& e, queue& target)
     tmp_dir::ptr p_file_dir;
 
     while (! m_is_stop_fn()) {
-        if (m_fetcher.fetch(filename, p_file_dir)) {
+        //if (m_fetcher.fetch(filename, p_file_dir)) {
+        if (m_queue_tail.get(filename, p_file_dir, 0)) {
             if (! e.open(p_file_dir, filename)) {
                 continue;
             }
@@ -147,7 +150,7 @@ bool queue::pop_item(entry& e, queue& target)
 bool queue::push_item(entry& e)
 {
     assert(e.is_alive());
-    tmp_dir::ptr p_dir = rotate(false);
+    tmp_dir::ptr p_dir = m_queue_head.get_active_dir(false); //rotate(false);
     if (! p_dir) {
         return false;
     }
@@ -155,13 +158,13 @@ bool queue::push_item(entry& e)
         return true;
     }
     if (errno == EEXIST) {
-        p_dir = rotate(true);
+        p_dir = m_queue_head.get_active_dir(true); //rotate(true);
         return e.move(p_dir);
     }
     return false;
 }
 
-tmp_dir::ptr queue::rotate(bool force_rotation)
+/*tmp_dir::ptr queue::rotate(bool force_rotation)
 {
     if (! force_rotation) {
         tmp_dir::ptr p_active_dir = std::atomic_load(&m_p_active_dir);
@@ -209,6 +212,19 @@ tmp_dir::ptr queue::rotate(bool force_rotation)
     m_dir_cv.notify_all();
 
     return std::atomic_load(&m_p_active_dir);
+}*/
+
+bool queue::start()
+{
+    assert(! m_root_dir.is_open());
+
+    if (! m_root_dir.open()) {
+        return false;
+    }
+    if (! m_root_dir.lock(false)) {
+        return false;
+    }
+    return true;
 }
 
 } // namespace fq

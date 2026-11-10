@@ -7,8 +7,9 @@ LibTarget(gut STATIC
         details/queue.cpp
         details/utils.cpp
         details/filequeue/cleaner.cpp
-        details/filequeue/fetcher.cpp
+        details/filequeue/head.cpp
         details/filequeue/queue.cpp
+        details/filequeue/tail.cpp
     INCLUDE_DIR
         src/libs
 )

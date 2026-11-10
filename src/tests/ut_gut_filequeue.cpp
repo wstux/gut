@@ -144,7 +144,7 @@ TEST_F(filequeue_fixture, names_collision)
     details::entry e2;
 
     ASSERT_TRUE(queue.create_item(e1, "item_0003.dat"));
-    ASSERT_TRUE(queue.create_item(e2, "item_0003.dat"));
+    ASSERT_FALSE(queue.create_item(e2, "item_0003.dat"));
 }
 
 TEST_F(filequeue_fixture, threads_race)
