@@ -66,6 +66,8 @@ private:
 
     details::fq::queue& input_queue() { return m_input; }
 
+    bool open();
+
 private:
     const std::string m_path;
     const is_stop_fn_t m_is_stop_fn;

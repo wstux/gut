@@ -94,13 +94,7 @@ queue::ptr queue::create_queue(const std::string_view& path, const is_stop_fn_t&
     }
     //return std::make_unique<queue>(path, is_stop_fn);
     queue::ptr p_queue = std::make_unique<queue>(path, is_stop_fn);
-    if (! p_queue->m_input.start()) {
-        return nullptr;
-    }
-    if (! p_queue->m_proc.start()) {
-        return nullptr;
-    }
-    if (! p_queue->m_output.start()) {
+    if (! p_queue->open()) {
         return nullptr;
     }
     return p_queue;
@@ -148,23 +142,31 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
         }
     }
     queue::ptr p_queue = std::make_unique<queue>(path, out_path, is_stop_fn);
-    if (! p_queue->m_input.start()) {
-        return nullptr;
-    }
-    if (! p_queue->m_proc.start()) {
-        return nullptr;
-    }
-    if (! p_queue->m_output.start()) {
+    if (! p_queue->open()) {
         return nullptr;
     }
     return p_queue;
 }
 
-item::ptr queue::pop(size_t /*wait_ms*/)
+bool queue::open()
+{
+    if (! m_input.open()) {
+        return false;
+    }
+    if (! m_proc.open()) {
+        return false;
+    }
+    if (! m_output.open()) {
+        return false;
+    }
+    return true;
+}
+
+item::ptr queue::pop(size_t wait_ms)
 {
     item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
 
-    if (! m_input.pop_item(p_item->m_entry, m_proc)) {
+    if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
         p_item.reset();
     } else {

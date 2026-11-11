@@ -22,6 +22,9 @@
  * THE SOFTWARE.
  */
 
+#include <linux/limits.h> // for PATH_MAX
+#include <sys/inotify.h>
+
 #include <time.h>
 
 #include <type_traits>
@@ -35,6 +38,87 @@ namespace gut {
 namespace details {
 namespace fq {
 namespace {
+
+class active_tier final
+{
+public:
+    using ptr = std::unique_ptr<active_tier>;
+
+public:
+    active_tier(const dir_t& root_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+        : m_p_dir(p_dir)
+        , m_p_notifier(p_notifier)
+    {
+        assert(m_p_dir && m_p_dir->is_open());
+
+        char path[PATH_MAX];
+        const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s/%.*s",
+            static_cast<int>(root_dir.path().size()), root_dir.path().data(),
+            static_cast<int>(p_parent_dir->name().size()), p_parent_dir->name().data(),
+            static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
+        assert(len > 0 && len < static_cast<int>(sizeof(path)));
+
+        m_wd = m_p_notifier->add_watch(path, IN_CREATE | IN_MOVED_TO,
+            [this](uint32_t mask, const std::string_view& name) {
+                if (name.empty()) {
+                    m_files.clear();
+                    reload();
+                } else if (mask & (IN_CREATE | IN_MOVED_TO)) {
+                    m_files.emplace(name);
+                }
+            });
+        reload();
+    }
+
+    ~active_tier()
+    {
+        if (m_wd >= 0 && m_p_notifier) {
+            m_p_notifier->remove_watch(m_wd);
+            m_wd = -1;
+        }
+    }
+
+    active_tier(const active_tier&) = delete;
+    active_tier& operator=(const active_tier&) = delete;
+    active_tier(active_tier&&) noexcept = default;
+    active_tier& operator=(active_tier&&) noexcept = default;
+
+    const tmp_dir::ptr& dir() const { return m_p_dir; }
+
+    bool empty() const { return m_files.empty(); }
+
+    void pop()
+    {
+        if (! m_files.empty()) {
+            m_files.erase(m_files.begin());
+        }
+    }
+
+    const std::string& top() const { return *m_files.begin(); }
+
+private:
+    void reload()
+    {
+        dir_reader scanner;
+        if (scanner.opendir(m_p_dir->fd())) {
+            while (struct ::dirent* p_ent = scanner.readdir()) {
+                if (p_ent->d_type == DT_REG) {
+                    std::string_view name = p_ent->d_name;
+                    if (name != "." && name != "..") {
+                        m_files.emplace(name);
+                    }
+                }
+            }
+            scanner.close();
+        }
+    }
+
+private:
+    tmp_dir::ptr m_p_dir;
+    notifier* m_p_notifier;
+    int m_wd = -1;
+    std::set<std::string> m_files;
+};
 
 /*size_t monotime_ms()
 {
@@ -75,6 +159,123 @@ bool reload_dir(const TParent& parent, std::set<tmp_dir::ptr>& pool, const std::
 
 } // <anonymous> namespace
 
+////////////////////////////////////////////////////////////////////////////////
+// class tail::primary_tier
+
+class tail::primary_tier final
+{
+public:
+    primary_tier(const dir_t& parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+        : m_parent_dir(parent_dir)
+        , m_p_dir(p_dir)
+        , m_p_notifier(p_notifier)
+    {
+        assert(m_p_dir && m_p_dir->is_open());
+
+        char path[PATH_MAX];
+        const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s",
+            static_cast<int>(parent_dir.path().size()), parent_dir.path().data(),
+            static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
+        assert(len > 0 && len < static_cast<int>(sizeof(path)));
+
+        m_wd = m_p_notifier->add_watch(path, IN_CREATE | IN_MOVED_TO,
+            [this](uint32_t mask, const std::string_view& name) {
+                if (name.empty()) {
+                    m_active_pool.clear();
+                    reload();
+                } else if (mask & (IN_CREATE | IN_MOVED_TO)) {
+                    m_active_pool.emplace(name);
+                }
+            });
+        reload();
+    }
+
+    ~primary_tier()
+    {
+        if (m_wd >= 0 && m_p_notifier) {
+            m_p_notifier->remove_watch(m_wd);
+            m_wd = -1;
+        }
+    }
+
+    const tmp_dir::ptr& dir() const { return m_p_dir; }
+
+    bool empty() const { return m_active_pool.empty() && m_active_tiers.empty(); }
+
+    bool get(std::string& filename, tmp_dir::ptr& p_dir, const cleaner::ptr& p_cleaner)
+    {
+        constexpr size_t k_tiers_limit = 16;
+        while (m_active_tiers.size() < k_tiers_limit && ! m_active_pool.empty()) {
+            const std::string active_dir_name = *m_active_pool.begin();
+            m_active_pool.erase(m_active_pool.begin());
+
+            tmp_dir::ptr p_active_dir = std::make_shared<tmp_dir>(active_dir_name, m_p_dir);
+            if (p_active_dir->open() && p_active_dir->lock(false)) {
+                active_tier::ptr p_child = std::make_unique<active_tier>(m_parent_dir, m_p_dir, p_active_dir, m_p_notifier);
+                if (! p_child->empty()) {
+                    m_active_tiers.emplace(active_dir_name, std::move(p_child));
+                } else {
+                    if (p_active_dir->lock(true)) {
+                        p_cleaner->push(p_active_dir);
+                    }
+                }
+            }
+        }
+
+        // K-way Merge
+        std::map<std::string, active_tier::ptr>::iterator cur_it = m_active_tiers.end();
+        for (std::map<std::string, active_tier::ptr>::iterator it = m_active_tiers.begin(); it != m_active_tiers.end(); ++it) {
+            //if (! it->second.empty() && ((cur_it == m_active_tiers.end()) || it->second.top() < cur_it->first)) {
+            if (! it->second->empty() && ((cur_it == m_active_tiers.end()) || it->second->top() < cur_it->second->top())) {
+                cur_it = it;
+            }
+        }
+
+        if (cur_it != m_active_tiers.end()) {
+            filename = cur_it->second->top();
+            p_dir = cur_it->second->dir();
+            cur_it->second->pop();
+
+            if (cur_it->second->empty()) {
+                if (cur_it->second->dir()->lock(true)) {
+                    p_cleaner->push(cur_it->second->dir());
+                    m_active_tiers.erase(cur_it);
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+private:
+    void reload()
+    {
+        dir_reader scanner;
+        if (scanner.opendir(m_p_dir->fd())) {
+            while (struct ::dirent* p_ent = scanner.readdir()) {
+                if (p_ent->d_type == DT_DIR) {
+                    std::string_view name = p_ent->d_name;
+                    if (name != "." && name != "..") {
+                        m_active_pool.emplace(name);
+                    }
+                }
+            }
+            scanner.close();
+        }
+    }
+
+private:
+    const dir_t& m_parent_dir;
+    tmp_dir::ptr m_p_dir;
+    notifier* m_p_notifier;
+    int m_wd = -1;
+    std::set<std::string> m_active_pool;
+    std::map<std::string, active_tier::ptr> m_active_tiers;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// class tail
+
 tail::tail(const dir_t& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn)
     : m_root_dir(root_dir)
     , m_is_stop_fn(is_stop_fn)
@@ -84,209 +285,102 @@ tail::tail(const dir_t& root_dir, const cleaner::ptr& p_cleaner, const is_stop_f
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
 }
 
-bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t /*wait_ms*/)
+tail::~tail()
+{
+    if (m_root_wd >= 0) {
+        m_notifier.remove_watch(m_root_wd);
+    }
+}
+
+bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
 {
     assert(m_root_dir.is_open());
     if (! m_root_dir.is_open()) {
         return false;
     }
 
-    filename.clear();
-    p_dir.reset();
+    std::unique_lock<std::mutex> lock(m_tail_mutex);
 
-    //const size_t now_ms = monotime_ms() + wait_ms;
-    while (! m_is_stop_fn()) { // && ((now_ms + wait_ms) > monotime_ms())) {
-        if (! m_files_pool.empty()) {
-            //assert(m_p_primary_dir && m_p_active_dir);
-            //assert(m_p_primary_dir < m_p_active_dir);
+    m_notifier.fetch(0);
+    while (! m_is_stop_fn()) {
+        while (m_primary_tiers.size() < 4 && ! m_primary_pool.empty()) {
+            std::string primary_name = *m_primary_pool.begin();
+            m_primary_pool.erase(m_primary_pool.begin());
 
-            filename = *m_files_pool.begin();
-            m_files_pool.erase(m_files_pool.begin());
-            p_dir = m_p_active_dir;
-            return true;
+            tmp_dir::ptr p_primary_dir = std::make_shared<tmp_dir>(primary_name, m_root_dir.fd());
+            if (p_primary_dir->open() && p_primary_dir->lock(false)) {
+                m_primary_tiers.emplace(primary_name, std::make_shared<primary_tier>(m_root_dir, p_primary_dir, &m_notifier));
+            }
         }
 
-        //if (m_p_active_dir && reload_dir(m_p_active_dir->fd(), DT_REG, m_files_pool)) {
-        //    continue;
-        //}
+        // K-way Merge
+        for (std::map<std::string, primary_tier_ptr_t>::iterator it = m_primary_tiers.begin(); it != m_primary_tiers.end();) {
+            if (it->second->get(filename, p_dir, m_p_cleaner)) {
+                return true;
+            }
 
-        if (reload()) {
-            continue;
+            if (it->second->empty()) {
+                const tmp_dir::ptr& target_dir = it->second->dir();
+                if (target_dir->lock(true)) {
+                    m_p_cleaner->push(target_dir);
+                }
+                it = m_primary_tiers.erase(it);
+            } else {
+                ++it;
+            }
         }
 
-        /*if (change_active_dir()) {
+        if (wait_ms > 0) {
+            lock.unlock();
+            const bool rc = m_notifier.wait(wait_ms);
+            lock.lock();
+
+            if (rc) {
+                m_notifier.fetch();
+            }
+
+            wait_ms = 0;
             continue;
         }
-        if (change_primary_dir()) {
-            continue;
-        }*/
 
         return false;
     }
     return false;
 }
-
-bool tail::load_files()
-{
-    if (! m_p_active_dir) {
-        return false;
-    }
-
-    assert(utils::is_open(m_p_active_dir->fd()));
-    assert(m_files_pool.empty());
-
-    dir_reader scanner;
-    if (! scanner.opendir(m_p_active_dir)) {
-        return false;
-    }
-
-    while (struct ::dirent* p_ent = scanner.readdir()) {
-        if (p_ent->d_type == DT_REG) {
-            const std::string_view file_name = p_ent->d_name;
-            if (file_name == "." || file_name == "..") {
-                continue;
-            }
-            assert(file_name.size() == gk_filename_length);
-            m_files_pool.emplace(file_name);
-        }
-    }
-    scanner.close();
-    return (! m_files_pool.empty());
-}
-
-/*bool tail::load_primary_dirs()
-{
-    dir_reader root_scanner;
-    if (! root_scanner.opendir(m_root_dir.fd())) {
-        return false;
-    }
-
-    while (struct ::dirent* p_ent = root_scanner.readdir()) {
-        if (p_ent->d_type == DT_DIR) {
-            const std::string_view dir_name = p_ent->d_name;
-            if (dir_name == "." || dir_name == "..") {
-                continue;
-            }
-            assert(dir_name.size() == gk_name_length);
-            m_primary_pool.emplace(dir_name);
-        }
-    }
-    root_scanner.close();
-    return (! m_primary_pool.empty());
-}*/
 
 bool tail::reload()
 {
-    while (true) {
-        if (load_files()) {
-            return true;
-        }
-        if (m_active_pool.empty()) {
-            if (reload_active_pool()) {
-                continue;
-            }
-        } else {
-            m_p_active_dir = *m_active_pool.begin();
-            m_active_pool.erase(m_active_pool.begin());
-            continue;
-        }
-        if (m_primary_pool.empty()) {
-            if (reload_dir(m_root_dir.fd(), m_primary_pool)) {
-                if (! m_primary_pool.empty()) {
-                    continue;
+    dir_reader scanner;
+    if (scanner.opendir(m_root_dir.fd())) {
+        while (struct ::dirent* p_ent = scanner.readdir()) {
+            if (p_ent->d_type == DT_DIR) {
+                std::string_view name = p_ent->d_name;
+                if (name != "." && name != "..") {
+                    m_primary_pool.emplace(name);
                 }
             }
-        } else {
-            m_primary_pool.erase(m_primary_pool.begin());
-            continue;
         }
-        return false;
+        scanner.close();
+        return true;
     }
     return false;
 }
-
-bool tail::reload_active_pool()
-{
-    if (m_primary_pool.empty()) {
-        return false;
-    }
-
-    const tmp_dir::ptr& p_dir = *m_primary_pool.begin();
-    if (! p_dir->is_open()) {
-        if (! p_dir->open()) {
-            return false;
-        }
-        if (! p_dir->lock(false)) {
-            p_dir->close();
-            return false;
-        }
-    }
-
-    if (reload_dir(p_dir, m_active_pool)) {
-        if (! m_active_pool.empty()) {
-            m_p_active_dir = *m_active_pool.begin();
-            m_active_pool.erase(m_active_pool.begin());
-            if (! m_p_active_dir->open()) {
-                m_p_active_dir.reset();
-                return false;
-            }
-            if (! m_p_active_dir->lock(false)) {
-                m_p_active_dir.reset();
-                return false;
-            }
-            return true;
-        }
-    }
-    return false;
-}
-
-/*bool tail::reload_dir(const int parend_fd, const int content_type, std::set<std::string>& pool, const std::string cur_name)
-{
-    assert(utils::is_open(parend_fd));
-    assert(pool.empty());
-
-    dir_reader scanner;
-    if (! scanner.opendir(parend_fd)) {
-        return false;
-    }
-
-    while (struct ::dirent* p_ent = scanner.readdir()) {
-        if (p_ent->d_type == content_type) {
-            const std::string_view dir_name = p_ent->d_name;
-            if (dir_name == "." || dir_name == "..") {
-                continue;
-            }
-            if (! cur_name.empty() && dir_name <= cur_name) {
-                continue;
-            }
-            assert(dir_name.size() == gk_name_length);
-            pool.emplace(dir_name);
-        }
-    }
-    scanner.close();
-    return (! pool.empty());
-}*/
 
 bool tail::start()
 {
-    if (! reload_dir(m_root_dir.fd(), m_primary_pool)) {
+    m_root_wd = m_notifier.add_watch(m_root_dir.path(), IN_CREATE | IN_MOVED_TO,
+        [this](uint32_t mask, const std::string_view& name) {
+            if (name.empty()) {
+                m_primary_pool.clear();
+                reload();
+            } else if (mask & (IN_CREATE | IN_MOVED_TO)) {
+                m_primary_pool.emplace(name);
+            }
+        });
+    if (m_root_wd < 0) {
         return false;
     }
-    if (! m_primary_pool.empty()) {
-        if (! reload_dir(*m_primary_pool.begin(), m_active_pool)) {
-            return false;
-        }
-    }
-    if (! m_active_pool.empty()) {
-        m_p_active_dir = *m_active_pool.begin();
-        m_active_pool.erase(m_active_pool.begin());
-    }
-    if (m_p_active_dir) {
-        if (! load_files()) {
-            return false;
-        }
-    }
-    return true;
+    return reload();
 }
 
 } // namespace fq

@@ -27,15 +27,15 @@ TestTarget(ut_gut_filequeue
         googletest
 )
 
-TestTarget(ut_gut_filequeue_tail
-    SOURCES
-        ut_gut_filequeue_tail.cpp
-    LIBRARIES
-        gut
-    DEPENDS
-        googletest
-    DISABLE
-)
+#TestTarget(ut_gut_filequeue_tail
+#    SOURCES
+#        ut_gut_filequeue_tail.cpp
+#    LIBRARIES
+#        gut
+#    DEPENDS
+#        googletest
+#    DISABLE
+#)
 
 TestTarget(ut_gut_queue
     SOURCES

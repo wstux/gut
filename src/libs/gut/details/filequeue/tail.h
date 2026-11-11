@@ -30,6 +30,7 @@
 #include <string>
 
 #include "gut/details/types.h"
+#include "gut/details/filequeue/notifier.h"
 
 namespace wstux {
 namespace gut {
@@ -51,6 +52,8 @@ public:
 public:
     tail(const dir_t& root_dir, const cleaner_ptr_t& p_cleaner, const is_stop_fn_t& is_stop_fn);
 
+    ~tail();
+
     /// \brief  Retrieves the next item from the disk-based queue.
     /// \param  filename - the name of the discovered task file.
     /// \param  p_dir - a pointer to the physical directory containing the file.
@@ -60,19 +63,11 @@ public:
     bool start();
 
 private:
-    bool load_files();
-
-    //bool load_primary_dirs();
-
-    //bool need_to_change_active_dir() const;
-
-    //bool need_to_change_primary_dir() const;
-
     bool reload();
 
-    bool reload_active_pool();
-
-    //static bool reload_dir(const int parend_fd, const int content_type, std::set<std::string>& pool, const std::string cur_name = std::string());
+private:
+    class primary_tier;
+    using primary_tier_ptr_t = std::shared_ptr<primary_tier>;
 
 private:
     const dir_t& m_root_dir;
@@ -80,12 +75,13 @@ private:
 
     cleaner_ptr_t m_p_cleaner;
 
-    std::set<tmp_dir_ptr_t> m_primary_pool;
-    std::set<tmp_dir_ptr_t> m_active_pool;
-    std::set<std::string> m_files_pool;
-
-    //tmp_dir_ptr_t m_p_primary_dir;
     tmp_dir_ptr_t m_p_active_dir;
+
+    std::mutex m_tail_mutex;
+    notifier m_notifier;
+    int m_root_wd = -1;
+    std::set<std::string> m_primary_pool;
+    std::map<std::string, primary_tier_ptr_t> m_primary_tiers;
 };
 
 } // namespace fq
