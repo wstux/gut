@@ -68,8 +68,8 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
             m_name[gk_name_length + 1] = 'd';
             m_name[gk_name_length + 2] = 'a';
             m_name[gk_name_length + 3] = 't';
-            m_name[gk_name_length + 4] = '\0';
         }
+        m_name[gk_filename_buffer_size - 1] = '\0';
 
         constexpr int flags = O_CREAT | O_EXCL | O_RDWR | O_NOCTTY | O_CLOEXEC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME;
         constexpr int mode = S_IRUSR | S_IWUSR; // 0600
