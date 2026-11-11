@@ -31,8 +31,8 @@
 #include <string_view>
 
 #include "gut/item.h"
-#include "gut/details/cleaner.h"
 #include "gut/details/types.h"
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
@@ -66,11 +66,13 @@ private:
 
     details::fq::queue& input_queue() { return m_input; }
 
+    bool open();
+
 private:
     const std::string m_path;
     const is_stop_fn_t m_is_stop_fn;
 
-    details::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner::ptr m_p_cleaner;
 
     details::fq::queue m_input;
     details::fq::queue m_proc;

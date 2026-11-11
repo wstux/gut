@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/cleaner.h"
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace {
@@ -51,7 +51,7 @@ public:
         m_work_path = m_root_path / "queue";
         ASSERT_TRUE(std::filesystem::create_directory(m_work_path)) << "Failed to create work directory '" << m_work_path << "'";
 
-        m_p_cleaner = std::make_shared<details::cleaner>([]() -> bool { return false; });
+        m_p_cleaner = std::make_shared<details::fq::cleaner>([]() -> bool { return false; });
     }
 
     void TearDown() override
@@ -84,7 +84,7 @@ private:
 private:
     std::filesystem::path m_root_path;
     std::filesystem::path m_work_path;
-    details::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner::ptr m_p_cleaner;
 };
 
 } // <anonymous> namespace
@@ -125,13 +125,13 @@ TEST_F(filequeue_fixture, move_item)
     }
     {
         details::entry e;
-        EXPECT_TRUE(src_queue.pop_item(e, dst_queue));
+        EXPECT_TRUE(src_queue.pop_item(e, dst_queue, 0));
         EXPECT_TRUE(e.is_alive());
         EXPECT_TRUE(e.name() == "item_0003.dat") << e.name();
     }
     details::entry e;
-    EXPECT_FALSE(src_queue.pop_item(e, dst_queue));
-    EXPECT_TRUE(dst_queue.pop_item(e, src_queue));
+    EXPECT_FALSE(src_queue.pop_item(e, dst_queue, 0));
+    EXPECT_TRUE(dst_queue.pop_item(e, src_queue, 0));
     EXPECT_TRUE(e.name() == "item_0003.dat") << e.name();
 }
 
@@ -144,7 +144,7 @@ TEST_F(filequeue_fixture, names_collision)
     details::entry e2;
 
     ASSERT_TRUE(queue.create_item(e1, "item_0003.dat"));
-    ASSERT_TRUE(queue.create_item(e2, "item_0003.dat"));
+    ASSERT_FALSE(queue.create_item(e2, "item_0003.dat"));
 }
 
 TEST_F(filequeue_fixture, threads_race)

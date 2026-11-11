@@ -28,11 +28,12 @@
 
 #include <cstring>
 
-#include "gut/details/cleaner.h"
+#include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
+namespace fq {
 
 cleaner::cleaner(is_stop_fn_t is_stop_fn)
     : m_is_stop_fn(std::move(is_stop_fn))
@@ -232,6 +233,7 @@ bool cleaner::step(int dir_gap_seconds, int file_gap_seconds)
     return m_dir_queue.empty();
 }
 
+} // namespace fq
 } // namespace details
 } // namespace gut
 } // namespace wstux

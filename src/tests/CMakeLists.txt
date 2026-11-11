@@ -18,18 +18,27 @@ TestTarget(ut_gut_cleaner
         googletest
 )
 
-TestTarget(ut_gut_fetcher
+TestTarget(ut_gut_filequeue
     SOURCES
-        ut_gut_fetcher.cpp
+        ut_gut_filequeue.cpp
     LIBRARIES
         gut
     DEPENDS
         googletest
 )
 
-TestTarget(ut_gut_filequeue
+TestTarget(ut_gut_filequeue_notifier
     SOURCES
-        ut_gut_filequeue.cpp
+        ut_gut_filequeue_notifier.cpp
+    LIBRARIES
+        gut
+    DEPENDS
+        googletest
+)
+
+TestTarget(ut_gut_filequeue_tail
+    SOURCES
+        ut_gut_filequeue_tail.cpp
     LIBRARIES
         gut
     DEPENDS

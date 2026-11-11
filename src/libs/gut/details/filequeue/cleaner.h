@@ -35,6 +35,7 @@
 namespace wstux {
 namespace gut {
 namespace details {
+namespace fq {
 
 class cleaner final
 {
@@ -64,7 +65,7 @@ public:
     bool step(int dir_gap_seconds, int file_gap_seconds);
 
 private:
-    using busy_record_t = std::array<char, utils::gk_name_buffer_size>;
+    using busy_record_t = std::array<char, gk_name_buffer_size>;
 
 private:
     bool perform(const tmp_dir::ptr& p_dir, int file_gap_seconds);
@@ -87,6 +88,7 @@ private:
     circular_buffer<tmp_dir::ptr, k_queue_size> m_dir_queue;
 };
 
+} // namespace fq
 } // namespace details
 } // namespace gut
 } // namespace wstux

@@ -45,7 +45,7 @@ std::string make_queue_path(const std::string_view& root_path, const std::string
 queue::queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_p_cleaner(std::make_shared<details::cleaner>(m_is_stop_fn))
+    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
     , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
     , m_output(make_queue_path(path, "output"), m_p_cleaner, m_is_stop_fn)
@@ -54,7 +54,7 @@ queue::queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn)
 queue::queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_p_cleaner(std::make_shared<details::cleaner>(m_is_stop_fn))
+    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
     , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
     , m_output(make_queue_path(out_path, "input"), m_p_cleaner, m_is_stop_fn)
@@ -92,7 +92,12 @@ queue::ptr queue::create_queue(const std::string_view& path, const is_stop_fn_t&
     if (error) {
         return nullptr;
     }
-    return std::make_unique<queue>(path, is_stop_fn);
+    //return std::make_unique<queue>(path, is_stop_fn);
+    queue::ptr p_queue = std::make_unique<queue>(path, is_stop_fn);
+    if (! p_queue->open()) {
+        return nullptr;
+    }
+    return p_queue;
 }
 
 queue::ptr queue::create_queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
@@ -121,7 +126,8 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
         // Create output dirs
         std::error_code error;
         const fs::path out_dir = fs::path(out_path) / "input";
-        if (fs::create_directories(out_dir, error)) {
+        fs::create_directories(out_dir, error);
+        if (error) {
             return nullptr;
         }
 
@@ -135,14 +141,32 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
             return nullptr;
         }
     }
-    return std::make_unique<queue>(path, out_path, is_stop_fn);
+    queue::ptr p_queue = std::make_unique<queue>(path, out_path, is_stop_fn);
+    if (! p_queue->open()) {
+        return nullptr;
+    }
+    return p_queue;
 }
 
-item::ptr queue::pop(size_t /*wait_ms*/)
+bool queue::open()
+{
+    if (! m_input.open()) {
+        return false;
+    }
+    if (! m_proc.open()) {
+        return false;
+    }
+    if (! m_output.open()) {
+        return false;
+    }
+    return true;
+}
+
+item::ptr queue::pop(size_t wait_ms)
 {
     item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
 
-    if (! m_input.pop_item(p_item->m_entry, m_proc)) {
+    if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
         p_item.reset();
     } else {

@@ -31,6 +31,7 @@
 #include <string>
 #include <string_view>
 
+#include "gut/details/generator.h"
 #include "gut/details/utils.h"
 
 namespace wstux {
@@ -45,9 +46,13 @@ public:
 public:
     explicit tmp_dir(int parent_fd);
 
+    explicit tmp_dir(const ptr& p_parent);
+
     tmp_dir(const char* p_name, int parent_fd);
 
     tmp_dir(const std::string_view& name, int parent_fd);
+
+    tmp_dir(const std::string_view& name, const ptr& p_parent);
 
     ~tmp_dir();
 
@@ -57,13 +62,11 @@ public:
 
     int fd() const { return m_fd; }
 
+    bool is_open() const { return utils::is_open(m_fd); }
+
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 
-    ::time_t mtime() const
-    {
-        struct ::stat64 info;
-        return (RETRY_EINTR(::fstat64(m_fd, &info)) == 0) ? info.st_mtime : -1;
-    }
+    ::time_t mtime() const { return utils::mtime(m_fd); }
 
     std::string_view name() const { return m_name; }
 
@@ -76,10 +79,11 @@ public:
     void unlock() const { utils::unlock(m_fd); }
 
 private:
+    const ptr m_p_parent;
     const int m_parent_fd = -1;
 
     int m_fd = -1;
-    char m_name[utils::gk_name_buffer_size];
+    char m_name[gk_name_buffer_size];
 };
 
 class dir_t final
@@ -130,6 +134,8 @@ public:
     bool opendir(const char* p_path) noexcept;
 
     bool opendir(int fd) noexcept;
+
+    bool opendir(const tmp_dir::ptr& p_parent) noexcept { return opendir(p_parent->fd()); }
 
     struct ::dirent* readdir() const noexcept;
 

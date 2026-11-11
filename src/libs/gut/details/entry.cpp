@@ -28,6 +28,7 @@
 #include <cstring>
 
 #include "gut/details/entry.h"
+#include "gut/details/retry_eintr.h"
 
 namespace wstux {
 namespace gut {
@@ -55,20 +56,20 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
     if (utils::is_open(m_fd)) {
         return false;
     }
-    if (! p_dir || (! name.empty() && name.size() != utils::gk_filename_length)) {
+    if (! p_dir || (! name.empty() && name.size() != gk_filename_length)) {
         return false;
     }
     for (size_t i = 0; i < 8 && ! utils::is_open(m_fd); ++i) {
         if (! name.empty()) {
-            ::strncpy(m_name, name.data(), utils::gk_filename_length);
+            ::strncpy(m_name, name.data(), gk_filename_length);
         } else {
-            utils::gen_name(m_name, utils::gk_name_length);
-            m_name[utils::gk_name_length + 0] = '.';
-            m_name[utils::gk_name_length + 1] = 'd';
-            m_name[utils::gk_name_length + 2] = 'a';
-            m_name[utils::gk_name_length + 3] = 't';
-            m_name[utils::gk_name_length + 4] = '\0';
+            generate_name(m_name, gk_filename_buffer_size);
+            m_name[gk_name_length + 0] = '.';
+            m_name[gk_name_length + 1] = 'd';
+            m_name[gk_name_length + 2] = 'a';
+            m_name[gk_name_length + 3] = 't';
         }
+        m_name[gk_filename_buffer_size - 1] = '\0';
 
         constexpr int flags = O_CREAT | O_EXCL | O_RDWR | O_NOCTTY | O_CLOEXEC | O_LARGEFILE | O_NOFOLLOW | O_NOATIME;
         constexpr int mode = S_IRUSR | S_IWUSR; // 0600
@@ -133,7 +134,7 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     if (utils::is_open(m_fd) || m_name[0] != '\0') {
         return false;
     }
-    if (! p_parent_dir || name.size() != utils::gk_filename_length) {
+    if (! p_parent_dir || name.size() != gk_filename_length) {
         return false;
     }
 
@@ -148,8 +149,8 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
         return false;
     }
     std::atomic_store(&m_p_parent_dir, p_parent_dir);
-    ::strncpy(m_name, name.data(), utils::gk_filename_length);
-    m_name[utils::gk_filename_buffer_size - 1] = '\0';
+    ::strncpy(m_name, name.data(), gk_filename_length);
+    m_name[gk_filename_buffer_size - 1] = '\0';
     return true;
 }
 

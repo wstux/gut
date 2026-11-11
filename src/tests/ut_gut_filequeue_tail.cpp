@@ -33,9 +33,9 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/cleaner.h"
 #include "gut/details/dir.h"
-#include "gut/details/filequeue/fetcher.h"
+#include "gut/details/filequeue/cleaner.h"
+#include "gut/details/filequeue/tail.h"
 
 namespace {
 
@@ -43,7 +43,7 @@ namespace gut = ::wstux::gut;
 namespace details = gut::details;
 namespace fq = gut::details::fq;
 
-class fetcher_fixture : public ::testing::Test
+class fq_tail_fixture : public ::testing::Test
 {
 public:
     void SetUp() override
@@ -59,7 +59,7 @@ public:
 
         m_p_work_dir = std::make_shared<details::dir_t>(m_work_path.string());
         ASSERT_TRUE(m_p_work_dir->open());
-        m_p_cleaner = std::make_shared<details::cleaner>([]() -> bool { return false; });
+        m_p_cleaner = std::make_shared<details::fq::cleaner>([]() -> bool { return false; });
     }
 
     void TearDown() override
@@ -78,9 +78,9 @@ public:
         ASSERT_TRUE(std::filesystem::create_directories(path)) << "Failed to create directory '" << path << "'";
     }
 
-    fq::fetcher make_fetcher()
+    fq::tail make_tail()
     {
-        return fq::fetcher(*m_p_work_dir, m_p_cleaner, []() { return false; });
+        return fq::tail(*m_p_work_dir, m_p_cleaner, []() { return false; });
     }
 
     details::tmp_dir::ptr make_tmp_dir(const std::string& dir_name, const int parent_fd) const
@@ -101,6 +101,15 @@ public:
 
         std::filesystem::path target_path = m_work_path / primary_dir / active_dir / filename;
         ::rename(tmp_path.string().c_str(), target_path.string().c_str());
+    }
+
+    int open_dir(const std::string& primary_dir, const std::string& active_dir = std::string())
+    {
+        std::filesystem::path path = m_work_path / primary_dir;
+        if (! active_dir.empty()) {
+            path = path / active_dir;
+        }
+        return ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY, 0);
     }
 
     void remove_file(const std::string& primary_dir, const std::string& active_dir, const std::string& filename)
@@ -128,42 +137,45 @@ private:
     std::filesystem::path m_tmp_path;
     std::filesystem::path m_work_path;
     std::shared_ptr<details::dir_t> m_p_work_dir;
-    details::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner::ptr m_p_cleaner;
 };
 
 } // <anonymous> namespace
 
-TEST_F(fetcher_fixture, scan_existing_files)
+TEST_F(fq_tail_fixture, scan_existing_files)
 {
     create_dirs("000000001", "000000002");
     move_file("000000001", "000000002", "randitem1.dat");
 
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem1.dat") << filename;
     ASSERT_TRUE(p_out_dir.get() != nullptr);
     EXPECT_TRUE(p_out_dir->name() == "000000002") << p_out_dir->name();
 }
 
-TEST_F(fetcher_fixture, empty_queue)
+TEST_F(fq_tail_fixture, empty_queue)
 {
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename.empty());
     EXPECT_TRUE(p_out_dir.get() == nullptr);
 }
 
-TEST_F(fetcher_fixture, detects_subdirs)
+TEST_F(fq_tail_fixture, detects_subdirs)
 {
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::thread writer_thread([this]() {
         create_dirs("000000003", "000000004");
@@ -175,20 +187,26 @@ TEST_F(fetcher_fixture, detects_subdirs)
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem2.dat") << filename;
     writer_thread.join();
 }
 
-TEST_F(fetcher_fixture, add_item_to_queue_head)
+TEST_F(fq_tail_fixture, add_item_to_queue_head)
 {
     create_dirs("000000005", "000000006");
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
+
+    const int pfd = open_dir("000000005");
+    const int afd = open_dir("000000005", "000000006");
+    ASSERT_TRUE(pfd > 0 && details::utils::lock(pfd, false));
+    ASSERT_TRUE(afd > 0 && details::utils::lock(afd, false));
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
 
     std::thread writer_thread([this]() {
         move_file("000000005", "000000006", "randitem3.dat");
@@ -196,27 +214,30 @@ TEST_F(fetcher_fixture, add_item_to_queue_head)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem3.dat") << filename;
     writer_thread.join();
+    details::utils::unlock(pfd);
+    details::utils::unlock(afd);
 }
 
-TEST_F(fetcher_fixture, evicts_to_cleaner)
+TEST_F(fq_tail_fixture, evicts_to_cleaner)
 {
     create_dirs("000000007", "000000008");
     create_dirs("000000007", "000000009");
     move_file("000000007", "000000008", "randitem4.dat");
 
-    fq::fetcher fetcher = make_fetcher();
+    fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
 
-    EXPECT_TRUE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem4.dat") << filename;
 
     remove_file("000000007", "000000008", "randitem4.dat");
-    EXPECT_FALSE(fetcher.fetch(filename, p_out_dir));
+    EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(cleaner_step());
 }
 

@@ -22,67 +22,66 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_FILEQUEUE_FETCHER_H_
-#define _LIBS_GUT_DETAILS_FILEQUEUE_FETCHER_H_
+#ifndef _LIBS_GUT_DETAILS_FILEQUEUE_TAIL_H_
+#define _LIBS_GUT_DETAILS_FILEQUEUE_TAIL_H_
 
+#include <memory>
 #include <set>
+#include <string>
 
-#include "gut/details/cleaner.h"
-#include "gut/details/dir.h"
 #include "gut/details/types.h"
+#include "gut/details/filequeue/notifier.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
+
+class dir_t;
+class tmp_dir;
+
 namespace fq {
 
-class fetcher final
+class cleaner;
+
+class tail final
 {
 public:
-    fetcher(dir_t& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn);
+    using cleaner_ptr_t = std::shared_ptr<cleaner>;
+    using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
 
-    ~fetcher();
+public:
+    tail(const dir_t& root_dir, const cleaner_ptr_t& p_cleaner, const is_stop_fn_t& is_stop_fn);
+
+    ~tail();
 
     /// \brief  Retrieves the next item from the disk-based queue.
     /// \param  filename - the name of the discovered task file.
     /// \param  p_dir - a pointer to the physical directory containing the file.
     /// \return true if an item was successfully retrieved and is ready for processing overwise false.
-    bool fetch(std::string& filename, tmp_dir::ptr& p_dir);
+    bool get(std::string& filename, tmp_dir_ptr_t& p_dir, size_t wait_ms);
+
+    bool start();
 
 private:
-    bool change_active_dir();
-
-    bool change_primary_dir();
-
-    bool load_files();
-
-    bool load_primary();
+    bool reload();
 
 private:
+    class primary_tier;
+    using primary_tier_ptr_t = std::shared_ptr<primary_tier>;
+
+private:
+    const dir_t& m_root_dir;
     const is_stop_fn_t m_is_stop_fn;
 
-    //circular_buffer<std::string, 16> m_primary_pool;
+    cleaner_ptr_t m_p_cleaner;
+
+    tmp_dir_ptr_t m_p_active_dir;
+
+    std::mutex m_tail_mutex;
+    notifier m_notifier;
+    int m_root_wd = -1;
     std::set<std::string> m_primary_pool;
-    /**
-     * inode (8 B) + rec_len (2 B) + name_len (1 B) + file_type (1 B) name (in cur. 10 B) = 22 B => 24 B (with align)
-     * 64 KB / 24 B ~= 2730 records
-     */
-    //circular_buffer<std::string, 512> m_active_pool;
-    std::set<std::string> m_active_pool;
-    /**
-     * inode (8 B) + rec_len (2 B) + name_len (1 B) + file_type (1 B) name (in cur. 14 B) = 26 B => 32 B (with align)
-     * 64 KB / 32 B ~= 2048 records
-     */
-    //circular_buffer<std::string, 1024> m_files_pool;
-    std::set<std::string> m_files_pool;
-
-    dir_t& m_root_dir;
-    tmp_dir::ptr m_p_primary_dir;
-    tmp_dir::ptr m_p_active_dir;
-
-    dir_reader m_scanner;
-
-    cleaner::ptr m_p_cleaner;
+    std::map<std::string, primary_tier_ptr_t> m_primary_tiers;
 };
 
 } // namespace fq
@@ -90,4 +89,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_DETAILS_FILEQUEUE_FETCHER_H_ */
+#endif /* _LIBS_GUT_DETAILS_FILEQUEUE_TAIL_H_ */
