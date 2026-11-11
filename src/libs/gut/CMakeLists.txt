@@ -8,6 +8,7 @@ LibTarget(gut STATIC
         details/utils.cpp
         details/filequeue/cleaner.cpp
         details/filequeue/head.cpp
+        details/filequeue/notifier.cpp
         details/filequeue/queue.cpp
         details/filequeue/tail.cpp
     INCLUDE_DIR
