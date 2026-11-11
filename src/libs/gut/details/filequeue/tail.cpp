@@ -212,12 +212,12 @@ public:
             tmp_dir::ptr p_active_dir = std::make_shared<tmp_dir>(active_dir_name, m_p_dir);
             if (p_active_dir->open() && p_active_dir->lock(false)) {
                 active_tier::ptr p_child = std::make_unique<active_tier>(m_parent_dir, m_p_dir, p_active_dir, m_p_notifier);
-                if (! p_child->empty()) {
+                if (! p_child->empty() || ! p_active_dir->lock(true)) {
                     m_active_tiers.emplace(active_dir_name, std::move(p_child));
                 } else {
-                    if (p_active_dir->lock(true)) {
-                        p_cleaner->push(p_active_dir);
-                    }
+                    //if (p_active_dir->lock(true)) {
+                    p_cleaner->push(p_active_dir);
+                    //}
                 }
             }
         }
@@ -323,8 +323,10 @@ bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
                 const tmp_dir::ptr& target_dir = it->second->dir();
                 if (target_dir->lock(true)) {
                     m_p_cleaner->push(target_dir);
+                    it = m_primary_tiers.erase(it);
+                } else {
+                    ++it;
                 }
-                it = m_primary_tiers.erase(it);
             } else {
                 ++it;
             }

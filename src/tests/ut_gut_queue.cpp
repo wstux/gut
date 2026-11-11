@@ -123,7 +123,7 @@ TEST_F(queue_fixture, create_item)
     EXPECT_FALSE(rq->pop(0));
 }
 
-TEST_F(queue_fixture, DISABLED_rollback)
+TEST_F(queue_fixture, rollback)
 {
     std::filesystem::path rqueue_dir = root_path() / "rollback_ritem";
     std::filesystem::path wqueue_dir = root_path() / "rollback_witem";
@@ -141,7 +141,7 @@ TEST_F(queue_fixture, DISABLED_rollback)
     EXPECT_TRUE(rq->pop(0));
 }
 
-TEST_F(queue_fixture, DISABLED_create_item_multithreaded)
+TEST_F(queue_fixture, create_item_multithreaded)
 {
     std::filesystem::path rqueue_dir = root_path() / "create_ritem_multithreaded";
     std::filesystem::path wqueue_dir = root_path() / "create_witem_multithreaded";
@@ -153,7 +153,7 @@ TEST_F(queue_fixture, DISABLED_create_item_multithreaded)
     std::atomic<bool> writers_done{false};
 
     const std::function<void()> read_fn = [&rq, &total_read, &writers_done]() {
-            while (! writers_done.load(std::memory_order_acquire) || rq->pop(0) != nullptr) {
+            while (! writers_done.load(std::memory_order_acquire)) {
                 if (gut::item::ptr item = rq->pop(10)) {
                     if (item->commit()) {
                         total_read.fetch_add(1, std::memory_order_relaxed);
