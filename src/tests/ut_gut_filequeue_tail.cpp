@@ -80,9 +80,7 @@ public:
 
     fq::tail make_tail()
     {
-        fq::tail tail = fq::tail(*m_p_work_dir, m_p_cleaner, []() { return false; });
-        init_tail(tail);
-        return tail;
+        return fq::tail(*m_p_work_dir, m_p_cleaner, []() { return false; });
     }
 
     details::tmp_dir::ptr make_tmp_dir(const std::string& dir_name, const int parent_fd) const
@@ -105,18 +103,21 @@ public:
         ::rename(tmp_path.string().c_str(), target_path.string().c_str());
     }
 
+    int open_dir(const std::string& primary_dir, const std::string& active_dir = std::string())
+    {
+        std::filesystem::path path = m_work_path / primary_dir;
+        if (! active_dir.empty()) {
+            path = path / active_dir;
+        }
+        return ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY, 0);
+    }
+
     void remove_file(const std::string& primary_dir, const std::string& active_dir, const std::string& filename)
     {
         std::filesystem::remove(m_work_path / primary_dir / active_dir / filename);
     }
 
     const details::dir_t& work_dir() const { return *m_p_work_dir; }
-
-private:
-    void init_tail(fq::tail& tail)
-    {
-        ASSERT_TRUE(tail.start());
-    }
 
 private:
     static std::filesystem::path make_tmp_dir(const std::string& prefix)
@@ -147,6 +148,7 @@ TEST_F(fq_tail_fixture, scan_existing_files)
     move_file("000000001", "000000002", "randitem1.dat");
 
     fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
@@ -160,6 +162,7 @@ TEST_F(fq_tail_fixture, scan_existing_files)
 TEST_F(fq_tail_fixture, empty_queue)
 {
     fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
@@ -172,6 +175,7 @@ TEST_F(fq_tail_fixture, empty_queue)
 TEST_F(fq_tail_fixture, detects_subdirs)
 {
     fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::thread writer_thread([this]() {
         create_dirs("000000003", "000000004");
@@ -192,6 +196,12 @@ TEST_F(fq_tail_fixture, add_item_to_queue_head)
 {
     create_dirs("000000005", "000000006");
     fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
+
+    const int pfd = open_dir("000000005");
+    const int afd = open_dir("000000005", "000000006");
+    ASSERT_TRUE(pfd > 0 && details::utils::lock(pfd, false));
+    ASSERT_TRUE(afd > 0 && details::utils::lock(afd, false));
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
@@ -207,6 +217,8 @@ TEST_F(fq_tail_fixture, add_item_to_queue_head)
     EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem3.dat") << filename;
     writer_thread.join();
+    details::utils::unlock(pfd);
+    details::utils::unlock(afd);
 }
 
 TEST_F(fq_tail_fixture, evicts_to_cleaner)
@@ -216,6 +228,7 @@ TEST_F(fq_tail_fixture, evicts_to_cleaner)
     move_file("000000007", "000000008", "randitem4.dat");
 
     fq::tail tail = make_tail();
+    ASSERT_TRUE(tail.start());
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
