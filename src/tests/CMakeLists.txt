@@ -27,6 +27,15 @@ TestTarget(ut_gut_filequeue
         googletest
 )
 
+TestTarget(ut_gut_filequeue_notifier
+    SOURCES
+        ut_gut_filequeue_notifier.cpp
+    LIBRARIES
+        gut
+    DEPENDS
+        googletest
+)
+
 TestTarget(ut_gut_filequeue_tail
     SOURCES
         ut_gut_filequeue_tail.cpp
