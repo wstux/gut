@@ -108,6 +108,10 @@ bool queue::pop_item(entry& e, queue& target, const size_t wait_ms)
             m_p_cleaner->step(5, 120);
             m_cleaner_ts = cur_time;
         }
+        //size_t expected_ts = m_cleaner_ts.load(std::memory_order_relaxed);
+        //if (expected_ts < cur_time && m_cleaner_ts.compare_exchange_strong(expected_ts, cur_time, std::memory_order_acq_rel)) {
+        //    m_p_cleaner->step(5, 120);
+        //}
         return false;
     }
 

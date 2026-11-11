@@ -25,9 +25,7 @@
 #ifndef _LIBS_GUT_DETAILS_FILEQUEUE_QUEUE_H_
 #define _LIBS_GUT_DETAILS_FILEQUEUE_QUEUE_H_
 
-#include <condition_variable>
-#include <mutex>
-#include <string>
+#include <atomic>
 #include <string_view>
 
 #include "gut/details/dir.h"
@@ -61,7 +59,7 @@ private:
     dir_t m_root_dir;
 
     cleaner::ptr m_p_cleaner;
-    size_t m_cleaner_ts = 0;
+    std::atomic_size_t m_cleaner_ts = 0;
 
     head m_queue_head;
     tail m_queue_tail;
