@@ -30,7 +30,7 @@
 namespace wstux {
 namespace gut {
 
-item::item(details::fq::queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn)
+item::item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
     , m_p_commit_queue(p_commit_queue)
     , m_p_rollback_queue(p_rollback_queue)
@@ -40,11 +40,13 @@ bool item::commit()
 {
     assert(m_entry.is_alive());
     assert(m_p_commit_queue);
-    assert(! m_p_current_queue);
+    //assert(! m_p_current_queue);
+    assert(! m_is_moved);
 
     const bool rc = m_p_commit_queue->push_item(m_entry);
     if (rc) {
-        m_p_current_queue = m_p_commit_queue;
+        //m_p_current_queue = m_p_commit_queue;
+        m_is_moved = true;
         m_entry.close();
         return true;
     }
@@ -56,11 +58,13 @@ bool item::rollback()
 {
     assert(m_entry.is_alive());
     assert(m_p_rollback_queue);
-    assert(! m_p_current_queue);
+    //assert(! m_p_current_queue);
+    assert(! m_is_moved);
 
     const bool rc = m_p_rollback_queue->push_item(m_entry);
     if (rc) {
-        m_p_current_queue = m_p_rollback_queue;
+        //m_p_current_queue = m_p_rollback_queue;
+        m_is_moved = true;
         m_entry.close();
         return true;
     }

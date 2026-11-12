@@ -40,16 +40,38 @@ namespace gut {
 namespace details {
 namespace fq {
 
-class queue final
+class sink_queue final
 {
 public:
-    queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn);
+    sink_queue(const std::string_view& root_dir, const is_stop_fn_t& is_stop_fn);
+
+    ~sink_queue();
 
     bool create_item(entry& e, const std::string_view& name = std::string_view());
 
     bool open();
 
-    bool pop_item(entry& e, queue& target, const size_t wait_ms);
+    bool push_item(entry& e);
+
+private:
+    dir_t m_root_dir;
+
+    head m_queue_head;
+};
+
+class queue final
+{
+public:
+    queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn);
+
+    ~queue();
+
+    bool create_item(entry& e, const std::string_view& name = std::string_view());
+
+    bool open();
+
+    template<typename TTargetQueue>
+    bool pop_item(entry& e, TTargetQueue& target, const size_t wait_ms);
 
     bool push_item(entry& e);
 
