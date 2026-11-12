@@ -47,8 +47,8 @@ queue::queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
-    , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
-    , m_output(make_queue_path(path, "output"), m_p_cleaner, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
+    , m_output(make_queue_path(path, "output"), m_is_stop_fn)
 {}
 
 queue::queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn)
@@ -56,8 +56,8 @@ queue::queue(const std::string_view& path, const std::string_view& out_path, con
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
-    , m_proc(make_queue_path(path, "proc"), m_p_cleaner, m_is_stop_fn)
-    , m_output(make_queue_path(out_path, "input"), m_p_cleaner, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
+    , m_output(make_queue_path(out_path, "input"), m_is_stop_fn)
 {}
 
 item::ptr queue::create()

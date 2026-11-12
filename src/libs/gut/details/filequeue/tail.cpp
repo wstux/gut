@@ -52,7 +52,7 @@ public:
         assert(m_p_dir && m_p_dir->is_open());
 
         char path[PATH_MAX];
-        const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s/%.*s",
+        [[maybe_unused]] const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s/%.*s",
             static_cast<int>(root_dir.path().size()), root_dir.path().data(),
             static_cast<int>(p_parent_dir->name().size()), p_parent_dir->name().data(),
             static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
@@ -173,7 +173,7 @@ public:
         assert(m_p_dir && m_p_dir->is_open());
 
         char path[PATH_MAX];
-        const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s",
+        [[maybe_unused]] const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s",
             static_cast<int>(parent_dir.path().size()), parent_dir.path().data(),
             static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
         assert(len > 0 && len < static_cast<int>(sizeof(path)));

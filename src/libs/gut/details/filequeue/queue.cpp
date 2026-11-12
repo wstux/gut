@@ -36,6 +36,17 @@ namespace details {
 namespace fq {
 namespace {
 
+bool create_queue_item(entry& e, const std::string_view& name, head& queue_head)
+{
+    assert(! e.is_alive());
+    tmp_dir::ptr p_active_dir = queue_head.get_active_dir(false);
+    if (! p_active_dir) {
+        return false;
+    }
+
+    return e.create(p_active_dir, name);
+}
+
 size_t monotime()
 {
     struct ::timespec tv;
@@ -46,7 +57,70 @@ size_t monotime()
     return static_cast<size_t>(::time(nullptr));
 }
 
+bool open_queue(dir_t& root_dir)
+{
+    assert(! root_dir.is_open());
+
+    if (! root_dir.open()) {
+        return false;
+    }
+    if (! root_dir.lock(false)) {
+        return false;
+    }
+    return true;
+}
+
+bool push_queue_item(entry& e, head& queue_head)
+{
+    assert(e.is_alive());
+    tmp_dir::ptr p_dir = queue_head.get_active_dir(false);
+    if (! p_dir) {
+        return false;
+    }
+    if (e.move(p_dir)) {
+        return true;
+    }
+    if (errno == EEXIST) {
+        p_dir = queue_head.get_active_dir(true);
+        return e.move(p_dir);
+    }
+    return false;
+}
+
 } // <anonymous> namespace
+
+////////////////////////////////////////////////////////////////////////////////
+// class sink_queue
+
+sink_queue::sink_queue(const std::string_view& root_dir, const is_stop_fn_t& is_stop_fn)
+    : m_root_dir(root_dir)
+    , m_queue_head(m_root_dir, is_stop_fn)
+{}
+
+sink_queue::~sink_queue()
+{
+    if (m_root_dir.is_open()) {
+        m_root_dir.unlock();
+    }
+}
+
+bool sink_queue::create_item(entry& e, const std::string_view& name)
+{
+    return create_queue_item(e, name, m_queue_head);
+}
+
+bool sink_queue::open()
+{
+    return open_queue(m_root_dir);
+}
+
+bool sink_queue::push_item(entry& e)
+{
+    return push_queue_item(e, m_queue_head);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// class queue
 
 queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
@@ -56,25 +130,23 @@ queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, co
     , m_queue_tail(m_root_dir, m_p_cleaner, m_is_stop_fn)
 {}
 
+queue::~queue()
+{
+    if (m_root_dir.is_open()) {
+        m_root_dir.unlock();
+    }
+}
+
 bool queue::create_item(entry& e, const std::string_view& name)
 {
-    assert(! e.is_alive());
-    tmp_dir::ptr p_active_dir = m_queue_head.get_active_dir(false);//rotate(false);
-    if (! p_active_dir) {
-        return false;
-    }
-
-    return e.create(p_active_dir, name);
+    return create_queue_item(e, name, m_queue_head);
 }
 
 bool queue::open()
 {
     assert(! m_root_dir.is_open());
 
-    if (! m_root_dir.open()) {
-        return false;
-    }
-    if (! m_root_dir.lock(false)) {
+    if (! open_queue(m_root_dir)) {
         return false;
     }
     if (! m_queue_tail.start()) {
@@ -83,7 +155,8 @@ bool queue::open()
     return true;
 }
 
-bool queue::pop_item(entry& e, queue& target, const size_t wait_ms)
+template<typename TTargetQueue>
+bool queue::pop_item(entry& e, TTargetQueue& target, const size_t wait_ms)
 {
     assert(! e.is_alive());
 
@@ -120,20 +193,11 @@ bool queue::pop_item(entry& e, queue& target, const size_t wait_ms)
 
 bool queue::push_item(entry& e)
 {
-    assert(e.is_alive());
-    tmp_dir::ptr p_dir = m_queue_head.get_active_dir(false); //rotate(false);
-    if (! p_dir) {
-        return false;
-    }
-    if (e.move(p_dir)) {
-        return true;
-    }
-    if (errno == EEXIST) {
-        p_dir = m_queue_head.get_active_dir(true); //rotate(true);
-        return e.move(p_dir);
-    }
-    return false;
+    return push_queue_item(e, m_queue_head);
 }
+
+template bool queue::pop_item<sink_queue>(entry&, sink_queue&, size_t);
+template bool queue::pop_item<queue>(entry&, queue&, size_t);
 
 } // namespace fq
 } // namespace details

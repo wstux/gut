@@ -75,8 +75,8 @@ private:
     details::fq::cleaner::ptr m_p_cleaner;
 
     details::fq::queue m_input;
-    details::fq::queue m_proc;
-    details::fq::queue m_output;
+    details::fq::sink_queue m_proc;
+    details::fq::sink_queue m_output;
 };
 
 } // namespace gut

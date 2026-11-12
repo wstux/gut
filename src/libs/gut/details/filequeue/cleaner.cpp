@@ -89,7 +89,8 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
 
                 if (saved_errno == EWOULDBLOCK || saved_errno == EAGAIN) {
                     busy_record_t& record = m_busy_pool[m_busy_pool_size++];
-                    ::strncpy(record.data(), p_ent->d_name, record.size() - 1);
+                    assert(::strlen(p_ent->d_name) == record.size() - 1);
+                    ::memcpy(record.data(), p_ent->d_name, record.size() - 1);
                     record.back() = '\0';
                     done = false;
                 } else {

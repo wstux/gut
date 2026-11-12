@@ -48,19 +48,22 @@ public:
 
 private:
     friend class queue;
-    friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::queue*&&,
+    //friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::queue*&&,
+    //    ::wstux::gut::details::fq::queue*&&, const ::wstux::gut::details::is_stop_fn_t&);
+    friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::sink_queue*&&,
         ::wstux::gut::details::fq::queue*&&, const ::wstux::gut::details::is_stop_fn_t&);
 
-    item(details::fq::queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn);
+    item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn);
 
 private:
     const details::is_stop_fn_t m_is_stop_fn;
 
     details::entry m_entry;
 
-    details::fq::queue* m_p_commit_queue = nullptr;
+    details::fq::sink_queue* m_p_commit_queue = nullptr;
     details::fq::queue* m_p_rollback_queue = nullptr;
-    details::fq::queue* m_p_current_queue = nullptr;
+    //details::fq::queue* m_p_current_queue = nullptr;
+    bool m_is_moved = false;
 };
 
 } // namespace gut
