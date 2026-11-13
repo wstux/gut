@@ -62,7 +62,7 @@ public:
 
     int fd() const { return m_fd; }
 
-    bool is_open() const { return utils::is_open(m_fd); }
+    bool is_open() const;
 
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 
@@ -97,7 +97,7 @@ public:
 
     int fd() const { return m_fd; }
 
-    bool is_open() const { return utils::is_open(m_fd); }
+    bool is_open() const;
 
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 

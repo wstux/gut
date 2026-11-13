@@ -37,7 +37,7 @@ namespace utils {
 
 bool close(int& fd)
 {
-    if (is_open(fd)) {
+    if (IS_OPEN_FD(fd)) {
         const int rc = ::close(fd);
         if (rc != 0) {
             return false;

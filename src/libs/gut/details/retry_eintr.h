@@ -27,6 +27,8 @@
 
 #include <cerrno>
 
+#define IS_OPEN_FD(fd)      (fd >= 0)
+
 #define RETRY_EINTR(expr)                                                       \
     __extension__ ({                                                            \
         long int __rc;                                                          \

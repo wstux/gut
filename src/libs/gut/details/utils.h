@@ -36,8 +36,6 @@ bool close(int& fd);
 
 bool is_alive(int fd);
 
-inline bool is_open(const int fd) { return (fd >= 0); }
-
 bool lock(const int fd, bool is_exclusive);
 
 void unlock(const int fd);

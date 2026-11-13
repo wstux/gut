@@ -56,13 +56,13 @@ void entry::close()
 
 bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
 {
-    if (utils::is_open(m_fd)) {
+    if (IS_OPEN_FD(m_fd)) {
         return false;
     }
     if (! p_dir || (! name.empty() && name.size() != gk_filename_length)) {
         return false;
     }
-    for (size_t i = 0; i < 8 && ! utils::is_open(m_fd); ++i) {
+    for (size_t i = 0; i < 8 && ! IS_OPEN_FD(m_fd); ++i) {
         if (! name.empty()) {
             ::strncpy(m_name, name.data(), gk_filename_length);
         } else {
@@ -93,7 +93,7 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
 
 bool entry::is_alive() const
 {
-    if (! utils::is_open(m_fd)) {
+    if (! IS_OPEN_FD(m_fd)) {
         return false;
     }
     return utils::is_alive(m_fd);
@@ -101,7 +101,7 @@ bool entry::is_alive() const
 
 const void* entry::map(const off64_t offset, const size_t size)
 {
-    assert(utils::is_open(m_fd));
+    assert(IS_OPEN_FD(m_fd));
     if (m_map_addr && (m_map_offset == offset) && (m_map_size == size)) {
         return m_map_addr;
     }
@@ -151,7 +151,7 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     assert(m_name[0] == '\0');
     assert(p_parent_dir);
 
-    if (utils::is_open(m_fd) || m_name[0] != '\0') {
+    if (IS_OPEN_FD(m_fd) || m_name[0] != '\0') {
         return false;
     }
     if (! p_parent_dir || name.size() != gk_filename_length) {
@@ -161,7 +161,7 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     constexpr int flags = O_RDWR | O_NOATIME | O_NOCTTY | O_CLOEXEC | O_LARGEFILE | O_NOFOLLOW;
     constexpr int mode = S_IRUSR | S_IWUSR; // 0600
     m_fd = RETRY_EINTR(::openat(p_parent_dir->fd(), name.data(), flags, mode));
-    if (! utils::is_open(m_fd)) {
+    if (! IS_OPEN_FD(m_fd)) {
         return false;
     }
     if (! utils::lock(m_fd, true)) {
@@ -224,7 +224,7 @@ bool entry::remove()
 
 ssize_t entry::size() const
 {
-    assert(utils::is_open(m_fd));
+    assert(IS_OPEN_FD(m_fd));
 
     struct ::stat64 info;
     const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
@@ -233,7 +233,7 @@ ssize_t entry::size() const
 
 bool entry::truncate(const size_t size)
 {
-    assert(utils::is_open(m_fd));
+    assert(IS_OPEN_FD(m_fd));
     if (! is_alive()) {
         return false;
     }
@@ -265,8 +265,8 @@ ssize_t entry::write(const char* p_data, const ssize_t size, const off64_t offse
 {
     ssize_t total = 0;
 
-    if (! utils::is_open(m_fd)) {
-        assert(utils::is_open(m_fd));
+    if (! IS_OPEN_FD(m_fd)) {
+        assert(IS_OPEN_FD(m_fd));
         return -1;
     }
 
