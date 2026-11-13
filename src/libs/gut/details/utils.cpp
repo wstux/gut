@@ -25,6 +25,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "gut/details/retry_eintr.h"
 #include "gut/details/utils.h"
@@ -48,7 +49,7 @@ bool close(int& fd)
 
 bool is_alive(int fd)
 {
-    stat_t info;
+    struct ::stat64 info;
     const int rc = RETRY_EINTR(::fstat64(fd, &info));
     return (rc == 0) ? info.st_nlink > 0 : false;
 }
@@ -61,48 +62,6 @@ bool lock(const int fd, bool is_exclusive)
         return false;
     }
     return true;
-}
-
-::time_t mtime(int fd)
-{
-    stat_t info;
-    const int rc = RETRY_EINTR(::fstat64(fd, &info));
-    return (rc == 0) ? info.st_mtime : -1;
-}
-
-int open_at(int dir_fd, const char* name, int flags, mode_t mode)
-{
-    int fd = RETRY_EINTR(::openat(dir_fd, name, flags, mode));
-    if (! is_open(fd)) {
-        switch (errno) {
-        case EINVAL:
-            if (flags & O_CLOEXEC) {
-                flags &= ~O_CLOEXEC;
-                fd = open_at(dir_fd, name, flags, mode);
-                if (is_open(fd)) {
-                    flags = RETRY_EINTR(::fcntl(fd, F_GETFD));
-                    if ((flags == -1) || RETRY_EINTR(::fcntl(fd, F_SETFD, FD_CLOEXEC | flags))) {
-                        close(fd);
-                    }
-                }
-                return fd;
-            } else {
-                return fd;
-            }
-            break;
-        case EPERM:
-            if (flags & O_NOATIME) {
-                flags &= ~O_NOATIME;
-                return open_at(dir_fd, name, flags, mode);
-            } else {
-                return fd;
-            }
-            break;
-        default:
-            return fd;
-        }
-    }
-    return fd;
 }
 
 void unlock(const int fd)

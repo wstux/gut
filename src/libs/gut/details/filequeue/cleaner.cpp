@@ -22,12 +22,14 @@
  * THE SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <cstring>
 
+#include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
@@ -71,7 +73,7 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                 return false;
             }
 
-            int file_fd = ::openat(p_dir->fd(), p_ent->d_name, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+            int file_fd = RETRY_EINTR(::openat(p_dir->fd(), p_ent->d_name, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
 
             if (file_fd < 0) {
                 if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
@@ -99,8 +101,8 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                 continue;
             }
 
-            struct ::stat info;
-            if (::fstat(file_fd, &info) != 0) {
+            struct ::stat64 info;
+            if (RETRY_EINTR(::fstat64(file_fd, &info)) != 0) {
                 utils::unlock(file_fd);
                 ::close(file_fd);
                 done &= remove_file(reader, p_ent->d_name);

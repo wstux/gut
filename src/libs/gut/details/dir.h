@@ -66,7 +66,7 @@ public:
 
     bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
 
-    ::time_t mtime() const { return utils::mtime(m_fd); }
+    ::time_t mtime() const;
 
     std::string_view name() const { return m_name; }
 

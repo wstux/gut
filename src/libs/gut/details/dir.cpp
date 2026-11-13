@@ -39,6 +39,41 @@ namespace gut {
 namespace details {
 namespace {
 
+int open_at(int dir_fd, const char* name, int flags)
+{
+    int fd = RETRY_EINTR(::openat(dir_fd, name, flags, 0));
+    if (! utils::is_open(fd)) {
+        switch (errno) {
+        case EINVAL:
+            if (flags & O_CLOEXEC) {
+                flags &= ~O_CLOEXEC;
+                fd = open_at(dir_fd, name, flags);
+                if (utils::is_open(fd)) {
+                    flags = RETRY_EINTR(::fcntl(fd, F_GETFD));
+                    if ((flags == -1) || RETRY_EINTR(::fcntl(fd, F_SETFD, FD_CLOEXEC | flags))) {
+                        close(fd);
+                    }
+                }
+                return fd;
+            } else {
+                return fd;
+            }
+            break;
+        case EPERM:
+            if (flags & O_NOATIME) {
+                flags &= ~O_NOATIME;
+                return open_at(dir_fd, name, flags);
+            } else {
+                return fd;
+            }
+            break;
+        default:
+            return fd;
+        }
+    }
+    return fd;
+}
+
 bool open_dir(int& fd, const int parent_fd, const char* p_path)
 {
     if(utils::is_open(fd)) {
@@ -46,7 +81,7 @@ bool open_dir(int& fd, const int parent_fd, const char* p_path)
     }
     while (! utils::is_open(fd)) {
         constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
-        fd = utils::open_at(parent_fd, p_path, openat_flags);
+        fd = open_at(parent_fd, p_path, openat_flags);
         if (utils::is_open(fd)) {
             break;
         }
@@ -142,7 +177,7 @@ bool tmp_dir::create()
         }
 
         constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
-        m_fd = utils::open_at(m_parent_fd, m_name, openat_flags);
+        m_fd = open_at(m_parent_fd, m_name, openat_flags);
         if (utils::is_open(m_fd)) {
             return true;
         }
@@ -152,6 +187,14 @@ bool tmp_dir::create()
     }
 
     return false;
+}
+
+::time_t tmp_dir::mtime() const
+{
+    assert(utils::is_open(m_fd));
+    struct ::stat64 info;
+    const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
+    return (rc == 0) ? info.st_mtime : -1;
 }
 
 bool tmp_dir::open()

@@ -25,16 +25,12 @@
 #ifndef _LIBS_GUT_DETAILS_UTILS_H_
 #define _LIBS_GUT_DETAILS_UTILS_H_
 
-#include <sys/stat.h>
-
 #include <cstddef>
 
 namespace wstux {
 namespace gut {
 namespace details {
 namespace utils {
-
-using stat_t = struct ::stat64;
 
 bool close(int& fd);
 
@@ -43,10 +39,6 @@ bool is_alive(int fd);
 inline bool is_open(const int fd) { return (fd >= 0); }
 
 bool lock(const int fd, bool is_exclusive);
-
-::time_t mtime(int fd);
-
-int open_at(int dir_fd, const char* name, int flags, mode_t mode = 0);
 
 void unlock(const int fd);
 
