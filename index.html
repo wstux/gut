@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raft Library</title>
+    <style>
+        :root {
+            --bg-main: #f6f8fa;
+            --bg-sidebar: #ffffff;
+            --text-main: #24292f;
+            --text-muted: #57606a;
+            --border-color: #d0d7de;
+            --link-color: #0969da;
+            --link-hover: #0550ae;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Menu */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            box-sizing: border-box;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-item {
+            margin-bottom: 8px;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(208, 215, 222, 0.32);
+            color: var(--link-color);
+        }
+
+        .sidebar-link.active {
+            font-weight: 600;
+            background-color: rgba(208, 215, 222, 0.48);
+        }
+
+        /* Autoresize of main content: flex-grow uses all free space */
+        .content {
+            margin-left: 260px;
+            padding: 40px;
+            box-sizing: border-box;
+            flex-grow: 1;
+            width: calc(100% - 260px);
+        }
+
+        /* Documentation card */
+        .markdown-body {
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mobile adaptivity */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 16px;
+            }
+            .content {
+                margin-left: 0;
+                padding: 16px;
+                width: 100%;
+            }
+            .markdown-body {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="sidebar-title">Menu</div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item">
+                <a href="#" class="sidebar-link active">Documentation</a>
+            </li>
+            <li class="sidebar-item">
+                <a href="./dev/bench/index.html" class="sidebar-link">Benchmarks</a>
+            </li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <article class="markdown-body">
+            <h1>Gut library</h1>
+
+            <h2>License</h2>
+            <p>&copy; 2026 Chistyakov Alexander.</p>
+            <p>Open sourced under MIT license, the terms of which can be read here — <a href="http://opensource.org" target="_blank">MIT License</a>.</p>
+        </article>
+    </main>
+
+</body>
+</html>
