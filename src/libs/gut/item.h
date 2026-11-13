@@ -26,6 +26,7 @@
 #define _LIBS_GUT_ITEM_H_
 
 #include <memory>
+#include <string_view>
 
 #include "gut/details/entry.h"
 #include "gut/details/types.h"
@@ -44,7 +45,27 @@ public:
 public:
     bool commit();
 
+    bool is_alive() const;
+
+    bool is_mapped() const;
+
+    const void* map();
+
+    const void* map(const off64_t offset, const size_t size);
+
+    ssize_t read(const off64_t offset, char* p_buffer, const size_t size);
+
+    bool remove();
+
     bool rollback();
+
+    ssize_t size() const;
+
+    bool truncate(const size_t size);
+
+    void unmap();
+
+    ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:
     friend class queue;
