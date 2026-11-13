@@ -47,13 +47,6 @@ bool close(int& fd)
     return true;
 }
 
-bool is_alive(int fd)
-{
-    struct ::stat64 info;
-    const int rc = RETRY_EINTR(::fstat64(fd, &info));
-    return (rc == 0) ? info.st_nlink > 0 : false;
-}
-
 bool lock(const int fd, bool is_exclusive)
 {
     const int op = is_exclusive ? LOCK_EX : LOCK_SH;

@@ -34,8 +34,6 @@ namespace utils {
 
 bool close(int& fd);
 
-bool is_alive(int fd);
-
 bool lock(const int fd, bool is_exclusive);
 
 void unlock(const int fd);

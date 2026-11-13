@@ -96,7 +96,9 @@ bool entry::is_alive() const
     if (! IS_OPEN_FD(m_fd)) {
         return false;
     }
-    return utils::is_alive(m_fd);
+    struct ::stat64 info;
+    const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
+    return (rc == 0) ? info.st_nlink > 0 : false;
 }
 
 const void* entry::map(const off64_t offset, const size_t size)
