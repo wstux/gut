@@ -48,7 +48,7 @@ void entry::close()
 {
     // unmap if needs
     utils::close(m_fd);
-    m_p_parent_dir.reset();
+    std::atomic_store(&m_p_parent_dir, tmp_dir::ptr());
 }
 
 bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
@@ -64,10 +64,7 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
             ::strncpy(m_name, name.data(), gk_filename_length);
         } else {
             generate_name(m_name, gk_filename_buffer_size);
-            m_name[gk_name_length + 0] = '.';
-            m_name[gk_name_length + 1] = 'd';
-            m_name[gk_name_length + 2] = 'a';
-            m_name[gk_name_length + 3] = 't';
+            ::memcpy(m_name + gk_name_length, ".dat", 4);
         }
         m_name[gk_filename_buffer_size - 1] = '\0';
 
@@ -79,7 +76,7 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
                 return false;
             }
         } else {
-            m_p_parent_dir = p_dir;
+            std::atomic_store(&m_p_parent_dir, p_dir);
             if (! utils::lock(m_fd, true)) {
                 close();
                 return false;
