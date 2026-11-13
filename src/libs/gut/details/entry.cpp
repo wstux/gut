@@ -23,6 +23,9 @@
  */
 
 #include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
 #include <cassert>
 #include <cstring>
@@ -46,7 +49,7 @@ entry::~entry()
 
 void entry::close()
 {
-    // unmap if needs
+    unmap();
     utils::close(m_fd);
     std::atomic_store(&m_p_parent_dir, tmp_dir::ptr());
 }
@@ -94,6 +97,26 @@ bool entry::is_alive() const
         return false;
     }
     return utils::is_alive(m_fd);
+}
+
+const void* entry::map(const off64_t offset, const size_t size)
+{
+    assert(utils::is_open(m_fd));
+    if (m_map_addr && (m_map_offset == offset) && (m_map_size == size)) {
+        return m_map_addr;
+    }
+
+    unmap();
+
+    m_map_addr = ::mmap64(nullptr, size, PROT_READ, MAP_SHARED | MAP_FILE, m_fd, offset);
+    if (m_map_addr && (m_map_addr != MAP_FAILED)) {
+        m_map_offset = offset;
+        m_map_size = size;
+    } else {
+        m_map_addr = nullptr;
+    }
+
+    return m_map_addr;
 }
 
 bool entry::move(const tmp_dir::ptr& p_new_parent_dir)
@@ -149,6 +172,122 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     ::strncpy(m_name, name.data(), gk_filename_length);
     m_name[gk_filename_buffer_size - 1] = '\0';
     return true;
+}
+
+ssize_t entry::read(const off64_t offset, char* p_buffer, size_t size)
+{
+    assert(p_buffer && size);
+
+    if (offset > entry::size()) {
+        return -1;
+    }
+
+    if (::lseek(m_fd, offset, SEEK_SET) < 0) {
+        return -1;
+    }
+
+    ssize_t chunk_size = 0;
+    ssize_t read_size = 0;
+    do {
+        chunk_size = ::read(m_fd, &p_buffer[read_size], size);
+        if ((chunk_size < 0) && (errno != EINTR)) {
+            return chunk_size;
+        }
+
+        if (chunk_size > 0) {
+            size -= chunk_size;
+            read_size += chunk_size;
+        }
+    } while ((chunk_size > 0) && (size > 0));
+    return read_size;
+}
+
+bool entry::remove()
+{
+    if (m_name[0] == '\0') {
+        return false;
+    }
+
+    tmp_dir::ptr p_dir = std::atomic_load(&m_p_parent_dir);
+    if (! p_dir) {
+        return false;
+    }
+
+    const int rc = RETRY_EINTR(::unlinkat(p_dir->fd(), m_name, 0));
+    if (rc != 0) {
+        return false;
+    }
+    close();
+
+    return true;
+}
+
+ssize_t entry::size() const
+{
+    assert(utils::is_open(m_fd));
+
+    struct ::stat64 info;
+    const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
+    return (rc == 0) ? info.st_size : -1;
+}
+
+bool entry::truncate(const size_t size)
+{
+    assert(utils::is_open(m_fd));
+    if (! is_alive()) {
+        return false;
+    }
+    const int rc = RETRY_EINTR(::ftruncate(m_fd, size));
+    if (rc == 0) {
+        if (is_mapped()) {
+            unmap();
+        }
+        return true;
+    }
+    return false;
+}
+
+void entry::unmap()
+{
+    if (m_map_addr) {
+        const int rc = RETRY_EINTR(::munmap((void*)m_map_addr, m_map_size));
+        if (rc != 0) {
+            // \todo Need to do something
+        }
+
+        m_map_addr = nullptr;
+        m_map_size = 0;
+        m_map_offset = 0;
+    }
+}
+
+ssize_t entry::write(const char* p_data, const ssize_t size, const off64_t offset)
+{
+    ssize_t total = 0;
+
+    if (! utils::is_open(m_fd)) {
+        assert(utils::is_open(m_fd));
+        return -1;
+    }
+
+    if (offset >= 0) {
+        if (::lseek(m_fd, offset, SEEK_SET) < 0) {
+            return  -1;
+        }
+    }
+
+    do {
+        const ssize_t written = ::write(m_fd, p_data + total, size - total);
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return total;
+        }
+        total += written;
+    } while (total < size);
+    assert(total == size);
+    return total;
 }
 
 } // namespace details
