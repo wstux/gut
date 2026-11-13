@@ -36,3 +36,18 @@ jobs:
 
     - name: Run unit tests
       run: make test ${{ matrix.make-flags }}
+
+    - name: Print tests log on failure
+      if: failure()
+      run: |
+        if [ -f build_release/Testing/Temporary/LastTest.log ]; then
+          cat build_release/Testing/Temporary/LastTest.log
+        fi
+
+    - name: Upload artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-${{ matrix.ut-name }}
+        path: build_release/Testing/Temporary/LastTest.log
+        if-no-files-found: ignore
