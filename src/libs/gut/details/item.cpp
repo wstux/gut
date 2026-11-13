@@ -54,6 +54,46 @@ bool item::commit()
     return false;
 }
 
+bool item::is_alive() const
+{
+    return m_entry.is_alive();
+}
+
+bool item::is_mapped() const
+{
+    return m_entry.is_mapped();
+}
+
+const void* item::map()
+{
+    const off64_t file_size = size();
+    if (file_size > 0) {
+        return m_entry.map(0, file_size);
+    }
+    return nullptr;
+}
+
+const void* item::map(const off64_t offset, const size_t size)
+{
+    if (size > 0 && ((off64_t)(offset + size) > 0) && (item::size() >= (off64_t)(offset + size))) {
+        return m_entry.map(offset, size);
+    }
+    return nullptr;
+}
+
+ssize_t item::read(const off64_t offset, char* p_buffer, const size_t size)
+{
+    return m_entry.read(offset, p_buffer, size);
+}
+
+bool item::remove()
+{
+    if (is_mapped()) {
+        return false;
+    }
+    return m_entry.remove();
+}
+
 bool item::rollback()
 {
     assert(m_entry.is_alive());
@@ -70,6 +110,26 @@ bool item::rollback()
     }
 
     return false;
+}
+
+ssize_t item::size() const
+{
+    return m_entry.size();
+}
+
+bool item::truncate(const size_t size)
+{
+    return m_entry.truncate(size);
+}
+
+void item::unmap()
+{
+    m_entry.unmap();
+}
+
+ssize_t item::write(const char* p_data, const ssize_t size, const off64_t offset)
+{
+    return m_entry.write(p_data, size, offset);
 }
 
 } // namespace gut

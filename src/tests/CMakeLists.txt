@@ -1,3 +1,14 @@
+# Performance tests
+
+PerfTestTarget(perf_gut_queue
+    SOURCES
+        perf_gut_queue.cpp
+    LIBRARIES
+        gut
+    DEPENDS
+        googlebenchmark
+)
+
 # Unit tests
 
 TestTarget(ut_gut_circular_buffer

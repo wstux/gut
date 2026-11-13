@@ -47,18 +47,36 @@ public:
 
     bool is_alive() const;
 
+    bool is_mapped() const { return (m_map_addr != nullptr); }
+
+    const void* map(const off64_t offset, const size_t size);
+
     bool move(const tmp_dir::ptr& p_new_parent_dir);
 
     std::string_view name() const { return m_name; }
 
     bool open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name);
 
-    //void reset() {}
+    ssize_t read(const off64_t offset, char* p_buffer, size_t size);
+
+    bool remove();
+
+    ssize_t size() const;
+
+    bool truncate(const size_t size);
+
+    void unmap();
+
+    ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:
     char m_name[gk_filename_buffer_size];
     int m_fd = -1;
     tmp_dir::ptr m_p_parent_dir;
+
+    const void* m_map_addr = nullptr;
+    size_t m_map_size = 0;
+    off64_t m_map_offset = 0;
 };
 
 } // namespace details
