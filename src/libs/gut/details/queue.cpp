@@ -26,6 +26,7 @@
 #include <filesystem>
 
 #include "gut/queue.h"
+#include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
 namespace gut {
@@ -40,7 +41,7 @@ std::string make_queue_path(const std::string_view& root_path, const std::string
     return path.string();
 }
 
-}
+} // <anonymous> namespace
 
 queue::queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
     : m_path(path)
@@ -49,7 +50,9 @@ queue::queue(const std::string_view& path, const std::function<bool()>& is_stop_
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
     , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
     , m_output(make_queue_path(path, "output"), m_is_stop_fn)
-{}
+{
+    static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
+}
 
 queue::queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn)
     : m_path(path)
@@ -58,7 +61,9 @@ queue::queue(const std::string_view& path, const std::string_view& out_path, con
     , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
     , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
     , m_output(make_queue_path(out_path, "input"), m_is_stop_fn)
-{}
+{
+    static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
+}
 
 item::ptr queue::create()
 {

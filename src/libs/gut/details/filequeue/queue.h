@@ -30,7 +30,6 @@
 
 #include "gut/details/dir.h"
 #include "gut/details/entry.h"
-#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/head.h"
 #include "gut/details/filequeue/tail.h"
 
@@ -61,7 +60,7 @@ private:
 class queue final
 {
 public:
-    queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn);
+    queue(const std::string_view& root_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
 
     ~queue();
 
@@ -79,7 +78,7 @@ private:
 
     dir_t m_root_dir;
 
-    cleaner::ptr m_p_cleaner;
+    cleaner_ptr_t m_p_cleaner;
     std::atomic_size_t m_cleaner_ts = 0;
 
     head m_queue_head;

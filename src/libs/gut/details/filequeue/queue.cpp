@@ -28,6 +28,7 @@
 #include <atomic>
 #include <thread>
 
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
@@ -128,7 +129,9 @@ queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, co
     , m_p_cleaner(p_cleaner)
     , m_queue_head(m_root_dir, m_is_stop_fn)
     , m_queue_tail(m_root_dir, m_p_cleaner, m_is_stop_fn)
-{}
+{
+    static_assert(std::is_same<cleaner_ptr_t, cleaner::ptr>::value);
+}
 
 queue::~queue()
 {

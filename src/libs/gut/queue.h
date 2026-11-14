@@ -31,7 +31,7 @@
 #include <string_view>
 
 #include "gut/item.h"
-#include "gut/details/filequeue/cleaner.h"
+#include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
@@ -69,7 +69,7 @@ private:
     const std::string m_path;
     const std::function<bool()> m_is_stop_fn;
 
-    details::fq::cleaner::ptr m_p_cleaner;
+    details::fq::cleaner_ptr_t m_p_cleaner;
 
     details::fq::queue m_input;
     details::fq::sink_queue m_proc;

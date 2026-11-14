@@ -32,6 +32,13 @@
 namespace wstux {
 namespace gut {
 namespace details {
+namespace fq {
+
+class cleaner;
+
+using cleaner_ptr_t = std::shared_ptr<cleaner>;
+
+} // namespace fq
 
 class dir_t;
 class dir_reader;
