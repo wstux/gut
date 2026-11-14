@@ -33,6 +33,7 @@
 
 #include "gut/details/dir.h"
 #include "gut/details/retry_eintr.h"
+#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
@@ -194,6 +195,11 @@ bool tmp_dir::is_open() const
     return IS_OPEN_FD(m_fd);
 }
 
+bool tmp_dir::lock(bool is_exclusive) const
+{
+    return utils::lock(m_fd, is_exclusive);
+}
+
 ::time_t tmp_dir::mtime() const
 {
     assert(IS_OPEN_FD(m_fd));
@@ -238,6 +244,11 @@ size_t tmp_dir::size() const
     return static_cast<size_t>(-1);
 }
 
+void tmp_dir::unlock() const
+{
+    utils::unlock(m_fd);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // class dir_t
 
@@ -261,9 +272,19 @@ bool dir_t::is_open() const
     return IS_OPEN_FD(m_fd);
 }
 
+bool dir_t::lock(bool is_exclusive) const
+{
+    return utils::lock(m_fd, is_exclusive);
+}
+
 bool dir_t::open()
 {
     return open_dir(m_fd, AT_FDCWD, m_path.c_str());
+}
+
+void dir_t::unlock() const
+{
+    utils::unlock(m_fd);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -32,7 +32,6 @@
 #include <string_view>
 
 #include "gut/details/generator.h"
-#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
@@ -64,7 +63,7 @@ public:
 
     bool is_open() const;
 
-    bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
+    bool lock(bool is_exclusive) const;
 
     ::time_t mtime() const;
 
@@ -76,7 +75,7 @@ public:
 
     size_t size() const;
 
-    void unlock() const { utils::unlock(m_fd); }
+    void unlock() const;
 
 private:
     const ptr m_p_parent;
@@ -99,13 +98,13 @@ public:
 
     bool is_open() const;
 
-    bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
+    bool lock(bool is_exclusive) const;
 
     bool open();
 
     std::string_view path() const { return m_path; }
 
-    void unlock() const { utils::unlock(m_fd); }
+    void unlock() const;
 
 private:
     std::string m_path;

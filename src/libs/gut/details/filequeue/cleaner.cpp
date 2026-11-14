@@ -30,6 +30,7 @@
 #include <cstring>
 
 #include "gut/details/retry_eintr.h"
+#include "gut/details/utils.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
@@ -37,7 +38,7 @@ namespace gut {
 namespace details {
 namespace fq {
 
-cleaner::cleaner(is_stop_fn_t is_stop_fn)
+cleaner::cleaner(std::function<bool()> is_stop_fn)
     : m_is_stop_fn(std::move(is_stop_fn))
 {}
 

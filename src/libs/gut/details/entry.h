@@ -25,17 +25,24 @@
 #ifndef _LIBS_GUT_DETAILS_ENTRY_H_
 #define _LIBS_GUT_DETAILS_ENTRY_H_
 
+#include <sys/types.h>
+
+#include <memory>
 #include <string_view>
 
-#include "gut/details/dir.h"
-#include "gut/details/utils.h"
+#include "gut/details/generator.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
 
+class tmp_dir;
+
 class entry final
 {
+public:
+    using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
+
 public:
     entry();
 
@@ -43,7 +50,7 @@ public:
 
     void close();
 
-    bool create(const tmp_dir::ptr& p_dir, const std::string_view& name);
+    bool create(const tmp_dir_ptr_t& p_dir, const std::string_view& name);
 
     bool is_alive() const;
 
@@ -51,11 +58,11 @@ public:
 
     const void* map(const off64_t offset, const size_t size);
 
-    bool move(const tmp_dir::ptr& p_new_parent_dir);
+    bool move(const tmp_dir_ptr_t& p_new_parent_dir);
 
-    std::string_view name() const { return m_name; }
+    std::string_view name() const { return std::string_view(m_name, sizeof(m_name) - 1); }
 
-    bool open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name);
+    bool open(const tmp_dir_ptr_t& p_parent_dir, const std::string_view& name);
 
     ssize_t read(const off64_t offset, char* p_buffer, size_t size);
 
@@ -72,7 +79,7 @@ public:
 private:
     char m_name[gk_filename_buffer_size];
     int m_fd = -1;
-    tmp_dir::ptr m_p_parent_dir;
+    tmp_dir_ptr_t m_p_parent_dir;
 
     const void* m_map_addr = nullptr;
     size_t m_map_size = 0;

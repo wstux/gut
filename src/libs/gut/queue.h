@@ -31,7 +31,6 @@
 #include <string_view>
 
 #include "gut/item.h"
-#include "gut/details/types.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -42,7 +41,6 @@ class queue final
 {
 public:
     using ptr = std::unique_ptr<queue>;
-    using is_stop_fn_t = details::is_stop_fn_t;
 
 public:
     item::ptr create();
@@ -51,18 +49,17 @@ public:
 
     item::ptr pop(size_t wait_ms);
 
-    static ptr create_queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
 
-    static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
 private:
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const ::wstux::gut::details::is_stop_fn_t&);
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::string_view&,
-        const ::wstux::gut::details::is_stop_fn_t&);
+    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::function<bool()>&);
+    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
 
-    queue(const std::string_view& path, const is_stop_fn_t& is_stop_fn);
+    queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
 
-    queue(const std::string_view& path, const std::string_view& out_path, const is_stop_fn_t& is_stop_fn);
+    queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
     details::fq::queue& input_queue() { return m_input; }
 
@@ -70,7 +67,7 @@ private:
 
 private:
     const std::string m_path;
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     details::fq::cleaner::ptr m_p_cleaner;
 

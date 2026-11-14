@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 #include "gut/details/dir.h"
+#include "gut/details/utils.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/tail.h"
 

@@ -29,8 +29,6 @@
 #include <map>
 #include <string_view>
 
-#include "gut/details/types.h"
-
 namespace wstux {
 namespace gut {
 namespace details {

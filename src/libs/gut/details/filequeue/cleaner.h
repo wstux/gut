@@ -25,12 +25,12 @@
 #ifndef _LIBS_GUT_DETAILS_CLEANER_H_
 #define _LIBS_GUT_DETAILS_CLEANER_H_
 
+#include <functional>
 #include <memory>
 #include <mutex>
 
 #include "gut/details/circular_buffer.h"
 #include "gut/details/dir.h"
-#include "gut/details/types.h"
 
 namespace wstux {
 namespace gut {
@@ -42,7 +42,7 @@ class cleaner final
 public:
     using ptr = std::shared_ptr<cleaner>;
 
-    explicit cleaner(is_stop_fn_t is_stop_fn);
+    explicit cleaner(std::function<bool()> is_stop_fn);
 
     /**
      *  \brief  Adds a directory to the queue for deferred cleanup.
@@ -78,7 +78,7 @@ private:
     static constexpr size_t k_max_files_per_dir = 3000;
     static constexpr size_t k_queue_size = 4096;
 
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     std::mutex m_mutex;
 

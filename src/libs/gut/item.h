@@ -29,7 +29,6 @@
 #include <string_view>
 
 #include "gut/details/entry.h"
-#include "gut/details/types.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
@@ -70,14 +69,14 @@ public:
 private:
     friend class queue;
     //friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::queue*&&,
-    //    ::wstux::gut::details::fq::queue*&&, const ::wstux::gut::details::is_stop_fn_t&);
+    //    ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
     friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::sink_queue*&&,
-        ::wstux::gut::details::fq::queue*&&, const ::wstux::gut::details::is_stop_fn_t&);
+        ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
 
-    item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn);
+    item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn);
 
 private:
-    const details::is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     details::entry m_entry;
 

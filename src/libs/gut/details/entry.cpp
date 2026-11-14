@@ -30,8 +30,10 @@
 #include <cassert>
 #include <cstring>
 
+#include "gut/details/dir.h"
 #include "gut/details/entry.h"
 #include "gut/details/retry_eintr.h"
+#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
@@ -39,6 +41,8 @@ namespace details {
 
 entry::entry()
 {
+    static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
+
     m_name[0] = '\0';
 }
 

@@ -25,10 +25,9 @@
 #ifndef _LIBS_GUT_DETAILS_FILEQUEUE_HEAD_H_
 #define _LIBS_GUT_DETAILS_FILEQUEUE_HEAD_H_
 
+#include <functional>
 #include <memory>
 #include <mutex>
-
-#include "gut/details/types.h"
 
 namespace wstux {
 namespace gut {
@@ -45,7 +44,7 @@ public:
     using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
 
 public:
-    head(const dir_t& root_dir, const is_stop_fn_t& is_stop_fn);
+    head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn);
 
     tmp_dir_ptr_t get_active_dir(bool force_rotation = false);
 
@@ -54,7 +53,7 @@ private:
 
 private:
     const dir_t& m_root_dir;
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     std::mutex m_dir_mutex;
     tmp_dir_ptr_t m_p_primary_dir;
