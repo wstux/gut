@@ -36,12 +36,25 @@ namespace gut {
 
 class queue;
 
+/**
+ *  \brief  Transactional item of a file queue.
+ *
+ *  Provides atomic management of an event's lifecycle.
+ *
+ *  \warning    An item is not thread-safe. A single item object must be processed
+ *      by only one thread at any given time.
+ */
 class item final
 {
 public:
     using ptr = std::unique_ptr<item>;
 
 public:
+    /// \brief  Commits the processing or creation of an element.
+    /// \return true if the element was successfully committed, otherwise false.
+    /// \details    Atomically moves a file from the working directory to the target
+    ///     output directory and releases the resources being used. Following a
+    //      successful call, the object becomes inactive.
     bool commit();
 
     bool is_alive() const;
@@ -56,6 +69,10 @@ public:
 
     bool remove();
 
+    /// \brief  Rollbacks the processing of an element.
+    /// \return true if the element was successfully committed, otherwise false.
+    /// \details    Returns a file from the working directory back to the incoming
+    ///     directory of the current queue, making it available for retrieval once again.
     bool rollback();
 
     ssize_t size() const;
