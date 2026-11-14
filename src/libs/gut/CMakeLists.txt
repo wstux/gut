@@ -5,7 +5,6 @@ LibTarget(gut STATIC
         details/generator.cpp
         details/item.cpp
         details/queue.cpp
-        details/utils.cpp
         details/filequeue/cleaner.cpp
         details/filequeue/head.cpp
         details/filequeue/notifier.cpp

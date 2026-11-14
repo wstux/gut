@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 
 #include <cassert>
@@ -34,7 +35,6 @@
 #include "gut/details/dir.h"
 #include "gut/details/generator.h"
 #include "gut/details/retry_eintr.h"
-#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
@@ -44,13 +44,13 @@ namespace {
 int open_at(int dir_fd, const char* name, int flags)
 {
     int fd = RETRY_EINTR(::openat(dir_fd, name, flags, 0));
-    if (! IS_OPEN_FD(fd)) {
+    if (! __GUT_IS_OPEN_FD(fd)) {
         switch (errno) {
         case EINVAL:
             if (flags & O_CLOEXEC) {
                 flags &= ~O_CLOEXEC;
                 fd = open_at(dir_fd, name, flags);
-                if (IS_OPEN_FD(fd)) {
+                if (__GUT_IS_OPEN_FD(fd)) {
                     flags = RETRY_EINTR(::fcntl(fd, F_GETFD));
                     if ((flags == -1) || RETRY_EINTR(::fcntl(fd, F_SETFD, FD_CLOEXEC | flags))) {
                         close(fd);
@@ -78,13 +78,13 @@ int open_at(int dir_fd, const char* name, int flags)
 
 bool open_dir(int& fd, const int parent_fd, const char* p_path)
 {
-    if(IS_OPEN_FD(fd)) {
+    if(__GUT_IS_OPEN_FD(fd)) {
         return true;
     }
-    while (! IS_OPEN_FD(fd)) {
+    while (! __GUT_IS_OPEN_FD(fd)) {
         constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
         fd = open_at(parent_fd, p_path, openat_flags);
-        if (IS_OPEN_FD(fd)) {
+        if (__GUT_IS_OPEN_FD(fd)) {
             break;
         }
 
@@ -98,7 +98,7 @@ bool open_dir(int& fd, const int parent_fd, const char* p_path)
             return false;
         }
     }
-    assert(IS_OPEN_FD(fd));
+    assert(__GUT_IS_OPEN_FD(fd));
     return true;
 }
 
@@ -110,7 +110,7 @@ bool open_dir(int& fd, const int parent_fd, const char* p_path)
 tmp_dir::tmp_dir(int parent_fd)
     : m_parent_fd(parent_fd)
 {
-    assert(IS_OPEN_FD(m_parent_fd));
+    assert(__GUT_IS_OPEN_FD(m_parent_fd));
     m_name[0] = '\0';
 }
 
@@ -118,7 +118,7 @@ tmp_dir::tmp_dir(const ptr& p_parent)
     : m_p_parent(p_parent)
     , m_parent_fd(m_p_parent->fd())
 {
-    assert(IS_OPEN_FD(m_parent_fd));
+    assert(__GUT_IS_OPEN_FD(m_parent_fd));
     m_name[0] = '\0';
 }
 
@@ -142,7 +142,7 @@ tmp_dir::tmp_dir(const std::string_view& name, const ptr& p_parent)
     : m_p_parent(p_parent)
     , m_parent_fd(m_p_parent->fd())
 {
-    assert(IS_OPEN_FD(m_parent_fd));
+    assert(__GUT_IS_OPEN_FD(m_parent_fd));
     assert(name.size() == gk_name_length);
     ::memcpy(m_name, name.data(), gk_name_length);
     m_name[gk_name_length] = '\0';
@@ -150,22 +150,22 @@ tmp_dir::tmp_dir(const std::string_view& name, const ptr& p_parent)
 
 tmp_dir::~tmp_dir()
 {
-    if (utils::lock(m_fd, true)) {
+    if (__GUT_LOCK_FD(m_fd, true)) {
         if (! remove() ) {
-            utils::unlock(m_fd);
+            __GUT_UNLOCK_FD(m_fd);
         }
     }
-    utils::close(m_fd);
+    __GUT_CLOSE_FD(m_fd);
 }
 
 void tmp_dir::close()
 {
-    utils::close(m_fd);
+    __GUT_CLOSE_FD(m_fd);
 }
 
 bool tmp_dir::create()
 {
-    assert(! IS_OPEN_FD(m_fd));
+    assert(! __GUT_IS_OPEN_FD(m_fd));
 
     while (true) {
         generate_name(m_name, sizeof(m_name));
@@ -180,7 +180,7 @@ bool tmp_dir::create()
 
         constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
         m_fd = open_at(m_parent_fd, m_name, openat_flags);
-        if (IS_OPEN_FD(m_fd)) {
+        if (__GUT_IS_OPEN_FD(m_fd)) {
             return true;
         }
         if (errno != ENOENT) {
@@ -193,17 +193,17 @@ bool tmp_dir::create()
 
 bool tmp_dir::is_open() const
 {
-    return IS_OPEN_FD(m_fd);
+    return __GUT_IS_OPEN_FD(m_fd);
 }
 
 bool tmp_dir::lock(bool is_exclusive) const
 {
-    return utils::lock(m_fd, is_exclusive);
+    return __GUT_LOCK_FD(m_fd, is_exclusive);
 }
 
 ::time_t tmp_dir::mtime() const
 {
-    assert(IS_OPEN_FD(m_fd));
+    assert(__GUT_IS_OPEN_FD(m_fd));
     struct ::stat64 info;
     const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
     return (rc == 0) ? info.st_mtime : -1;
@@ -212,7 +212,7 @@ bool tmp_dir::lock(bool is_exclusive) const
 bool tmp_dir::open()
 {
     assert(m_name[0] != '\0');
-    assert(IS_OPEN_FD(m_parent_fd));
+    assert(__GUT_IS_OPEN_FD(m_parent_fd));
     return open_dir(m_fd, m_parent_fd, m_name);
 }
 
@@ -222,7 +222,7 @@ bool tmp_dir::remove()
         return true;
     }
 
-    assert(IS_OPEN_FD(m_parent_fd));
+    assert(__GUT_IS_OPEN_FD(m_parent_fd));
     const int rc = RETRY_EINTR(::unlinkat(m_parent_fd, m_name, AT_REMOVEDIR));
     if ((rc != 0) && (errno != ENOENT)) {
         if ((errno == ENOTEMPTY) || (errno == EBUSY)) {
@@ -247,7 +247,7 @@ size_t tmp_dir::size() const
 
 void tmp_dir::unlock() const
 {
-    utils::unlock(m_fd);
+    __GUT_UNLOCK_FD(m_fd);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -265,17 +265,17 @@ dir_t::dir_t(std::string_view dir_path)
 
 dir_t::~dir_t()
 {
-    utils::close(m_fd);
+    __GUT_CLOSE_FD(m_fd);
 }
 
 bool dir_t::is_open() const
 {
-    return IS_OPEN_FD(m_fd);
+    return __GUT_IS_OPEN_FD(m_fd);
 }
 
 bool dir_t::lock(bool is_exclusive) const
 {
-    return utils::lock(m_fd, is_exclusive);
+    return __GUT_LOCK_FD(m_fd, is_exclusive);
 }
 
 bool dir_t::open()
@@ -285,7 +285,7 @@ bool dir_t::open()
 
 void dir_t::unlock() const
 {
-    utils::unlock(m_fd);
+    __GUT_UNLOCK_FD(m_fd);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

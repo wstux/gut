@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -34,7 +35,6 @@
 #include "gut/details/entry.h"
 #include "gut/details/generator.h"
 #include "gut/details/retry_eintr.h"
-#include "gut/details/utils.h"
 
 namespace wstux {
 namespace gut {
@@ -55,19 +55,19 @@ entry::~entry()
 void entry::close()
 {
     unmap();
-    utils::close(m_fd);
+    __GUT_CLOSE_FD(m_fd);
     std::atomic_store(&m_p_parent_dir, tmp_dir::ptr());
 }
 
 bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
 {
-    if (IS_OPEN_FD(m_fd)) {
+    if (__GUT_IS_OPEN_FD(m_fd)) {
         return false;
     }
     if (! p_dir || (! name.empty() && name.size() != gk_filename_length)) {
         return false;
     }
-    for (size_t i = 0; i < 8 && ! IS_OPEN_FD(m_fd); ++i) {
+    for (size_t i = 0; i < 8 && ! __GUT_IS_OPEN_FD(m_fd); ++i) {
         if (! name.empty()) {
             ::strncpy(m_name, name.data(), gk_filename_length);
         } else {
@@ -85,7 +85,7 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
             }
         } else {
             std::atomic_store(&m_p_parent_dir, p_dir);
-            if (! utils::lock(m_fd, true)) {
+            if (! __GUT_LOCK_FD(m_fd, true)) {
                 close();
                 return false;
             }
@@ -98,7 +98,7 @@ bool entry::create(const tmp_dir::ptr& p_dir, const std::string_view& name)
 
 bool entry::is_alive() const
 {
-    if (! IS_OPEN_FD(m_fd)) {
+    if (! __GUT_IS_OPEN_FD(m_fd)) {
         return false;
     }
     struct ::stat64 info;
@@ -108,7 +108,7 @@ bool entry::is_alive() const
 
 const void* entry::map(const off64_t offset, const size_t size)
 {
-    assert(IS_OPEN_FD(m_fd));
+    assert(__GUT_IS_OPEN_FD(m_fd));
     if (m_map_addr && (m_map_offset == offset) && (m_map_size == size)) {
         return m_map_addr;
     }
@@ -158,7 +158,7 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     assert(m_name[0] == '\0');
     assert(p_parent_dir);
 
-    if (IS_OPEN_FD(m_fd) || m_name[0] != '\0') {
+    if (__GUT_IS_OPEN_FD(m_fd) || m_name[0] != '\0') {
         return false;
     }
     if (! p_parent_dir || name.size() != gk_filename_length) {
@@ -168,11 +168,11 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     constexpr int flags = O_RDWR | O_NOATIME | O_NOCTTY | O_CLOEXEC | O_LARGEFILE | O_NOFOLLOW;
     constexpr int mode = S_IRUSR | S_IWUSR; // 0600
     m_fd = RETRY_EINTR(::openat(p_parent_dir->fd(), name.data(), flags, mode));
-    if (! IS_OPEN_FD(m_fd)) {
+    if (! __GUT_IS_OPEN_FD(m_fd)) {
         return false;
     }
-    if (! utils::lock(m_fd, true)) {
-        utils::close(m_fd);
+    if (! __GUT_LOCK_FD(m_fd, true)) {
+        __GUT_CLOSE_FD(m_fd);
         return false;
     }
     std::atomic_store(&m_p_parent_dir, p_parent_dir);
@@ -231,7 +231,7 @@ bool entry::remove()
 
 ssize_t entry::size() const
 {
-    assert(IS_OPEN_FD(m_fd));
+    assert(__GUT_IS_OPEN_FD(m_fd));
 
     struct ::stat64 info;
     const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
@@ -240,7 +240,7 @@ ssize_t entry::size() const
 
 bool entry::truncate(const size_t size)
 {
-    assert(IS_OPEN_FD(m_fd));
+    assert(__GUT_IS_OPEN_FD(m_fd));
     if (! is_alive()) {
         return false;
     }
@@ -272,8 +272,8 @@ ssize_t entry::write(const char* p_data, const ssize_t size, const off64_t offse
 {
     ssize_t total = 0;
 
-    if (! IS_OPEN_FD(m_fd)) {
-        assert(IS_OPEN_FD(m_fd));
+    if (! __GUT_IS_OPEN_FD(m_fd)) {
+        assert(__GUT_IS_OPEN_FD(m_fd));
         return -1;
     }
 

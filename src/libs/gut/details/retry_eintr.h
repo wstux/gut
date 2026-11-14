@@ -27,14 +27,38 @@
 
 #include <cerrno>
 
-#define IS_OPEN_FD(fd)      (fd >= 0)
-
 #define RETRY_EINTR(expr)                                                       \
     __extension__ ({                                                            \
         long int __rc;                                                          \
         do {                                                                    \
             __rc = (long int)(expr);                                            \
         } while (__rc == -1L && errno == EINTR);                                \
+        __rc;                                                                   \
+    })
+
+#define __GUT_IS_OPEN_FD(fd)        (fd >= 0)
+
+#define __GUT_CLOSE_FD(fd)                                                      \
+    __extension__ ({                                                            \
+        bool __rc = false;                                                      \
+        if (__GUT_IS_OPEN_FD(fd)) {                                             \
+            if (::close(fd) == 0) {                                             \
+                fd = -1;                                                        \
+                __rc = true;                                                    \
+            }                                                                   \
+        }                                                                       \
+        __rc;                                                                   \
+    })
+
+#define __GUT_LOCK_FD(fd, is_exclusive)                                         \
+    __extension__ ({                                                            \
+        bool __rc = RETRY_EINTR(::flock(fd, LOCK_NB | (is_exclusive ? LOCK_EX : LOCK_SH))) == 0; \
+        __rc;                                                                   \
+    })
+
+#define __GUT_UNLOCK_FD(fd)                                                     \
+    __extension__ ({                                                            \
+        bool __rc = RETRY_EINTR(::flock(fd, LOCK_NB | LOCK_UN)) == 0;           \
         __rc;                                                                   \
     })
 

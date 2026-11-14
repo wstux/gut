@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -31,7 +32,6 @@
 
 #include "gut/details/dir.h"
 #include "gut/details/retry_eintr.h"
-#include "gut/details/utils.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
@@ -89,7 +89,7 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                 continue;
             }
 
-            if (! utils::lock(file_fd, true)) {
+            if (! __GUT_LOCK_FD(file_fd, true)) {
                 int saved_errno = errno;
                 ::close(file_fd);
 
@@ -107,7 +107,7 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
 
             struct ::stat64 info;
             if (RETRY_EINTR(::fstat64(file_fd, &info)) != 0) {
-                utils::unlock(file_fd);
+                __GUT_UNLOCK_FD(file_fd);
                 ::close(file_fd);
                 done &= remove_file(reader, p_ent->d_name);
                 continue;
@@ -123,12 +123,12 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                     done = false;
                 }
 
-                utils::unlock(file_fd);
+                __GUT_UNLOCK_FD(file_fd);
                 ::close(file_fd);
                 continue;
             }
 
-            utils::unlock(file_fd);
+            __GUT_UNLOCK_FD(file_fd);
             ::close(file_fd);
 
             if (info.st_size < 1) {
