@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/file.h>
 
 #include <filesystem>
 #include <random>
@@ -31,6 +32,7 @@
 #include <gtest/gtest.h>
 
 #include "gut/details/dir.h"
+#include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace {
@@ -162,11 +164,11 @@ TEST_F(cleaner_fixture, DISABLED_locked_file)
     details::tmp_dir::ptr p_dir = create_dir("000000003");
 
     int file_fd = create_file(p_dir, "randitem3.dat");
-    ASSERT_TRUE(details::utils::lock(file_fd, true));
+    ASSERT_TRUE(__GUT_LOCK_FD(file_fd, true));
 
     EXPECT_TRUE(cleaner.push(p_dir));
     EXPECT_FALSE(cleaner.step(0, 0));
-    details::utils::unlock(file_fd);
+    __GUT_UNLOCK_FD(file_fd);
     ::close(file_fd);
 
     const std::filesystem::path file_path = full_path(p_dir) / "randitem2.dat";

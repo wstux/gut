@@ -22,37 +22,39 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_UTILS_H_
-#define _LIBS_GUT_DETAILS_UTILS_H_
+#ifndef _LIBS_GUT_DETAILS_FWD_H_
+#define _LIBS_GUT_DETAILS_FWD_H_
 
-#include <sys/stat.h>
+#include <sys/types.h>
 
-#include <cstddef>
+#include <memory>
 
 namespace wstux {
 namespace gut {
 namespace details {
-namespace utils {
+namespace fq {
 
-using stat_t = struct ::stat64;
+class cleaner;
 
-bool close(int& fd);
+using cleaner_ptr_t = std::shared_ptr<cleaner>;
 
-bool is_alive(int fd);
+} // namespace fq
 
-inline bool is_open(const int fd) { return (fd >= 0); }
+class dir_t;
+class dir_reader;
+class tmp_dir;
 
-bool lock(const int fd, bool is_exclusive);
+using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
 
-::time_t mtime(int fd);
+constexpr size_t gk_name_length = 9;
+constexpr size_t gk_name_buffer_size = gk_name_length + 1;
 
-int open_at(int dir_fd, const char* name, int flags, mode_t mode = 0);
+constexpr size_t gk_filename_ext_length = 4;
+constexpr size_t gk_filename_length = gk_name_length + gk_filename_ext_length;
+constexpr size_t gk_filename_buffer_size = gk_filename_length + 1;
 
-void unlock(const int fd);
-
-} // namespace utils
 } // namespace details
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_DETAILS_UTILS_H_ */
+#endif /* _LIBS_GUT_DETAILS_FWD_H_ */

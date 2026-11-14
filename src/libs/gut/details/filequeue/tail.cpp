@@ -276,7 +276,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class tail
 
-tail::tail(const dir_t& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn)
+tail::tail(const dir_t& root_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
     : m_root_dir(root_dir)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(p_cleaner)

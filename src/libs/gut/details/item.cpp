@@ -30,7 +30,7 @@
 namespace wstux {
 namespace gut {
 
-item::item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const details::is_stop_fn_t& is_stop_fn)
+item::item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
     , m_p_commit_queue(p_commit_queue)
     , m_p_rollback_queue(p_rollback_queue)

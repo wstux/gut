@@ -24,6 +24,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/file.h>
 
 #include <chrono>
 #include <filesystem>
@@ -34,6 +35,7 @@
 #include <gtest/gtest.h>
 
 #include "gut/details/dir.h"
+#include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/tail.h"
 
@@ -200,8 +202,8 @@ TEST_F(fq_tail_fixture, add_item_to_queue_head)
 
     const int pfd = open_dir("000000005");
     const int afd = open_dir("000000005", "000000006");
-    ASSERT_TRUE(pfd > 0 && details::utils::lock(pfd, false));
-    ASSERT_TRUE(afd > 0 && details::utils::lock(afd, false));
+    ASSERT_TRUE(pfd > 0 && __GUT_LOCK_FD(pfd, false));
+    ASSERT_TRUE(afd > 0 && __GUT_LOCK_FD(afd, false));
 
     std::string filename;
     details::tmp_dir::ptr p_out_dir;
@@ -217,8 +219,8 @@ TEST_F(fq_tail_fixture, add_item_to_queue_head)
     EXPECT_TRUE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(filename == "randitem3.dat") << filename;
     writer_thread.join();
-    details::utils::unlock(pfd);
-    details::utils::unlock(afd);
+    __GUT_UNLOCK_FD(pfd);
+    __GUT_UNLOCK_FD(afd);
 }
 
 TEST_F(fq_tail_fixture, evicts_to_cleaner)

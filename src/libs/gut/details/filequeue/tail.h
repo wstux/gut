@@ -29,16 +29,12 @@
 #include <set>
 #include <string>
 
-#include "gut/details/types.h"
+#include "gut/details/fwd.h"
 #include "gut/details/filequeue/notifier.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
-
-class dir_t;
-class tmp_dir;
-
 namespace fq {
 
 class cleaner;
@@ -47,10 +43,9 @@ class tail final
 {
 public:
     using cleaner_ptr_t = std::shared_ptr<cleaner>;
-    using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
 
 public:
-    tail(const dir_t& root_dir, const cleaner_ptr_t& p_cleaner, const is_stop_fn_t& is_stop_fn);
+    tail(const dir_t& root_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
 
     ~tail();
 
@@ -71,7 +66,7 @@ private:
 
 private:
     const dir_t& m_root_dir;
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     cleaner_ptr_t m_p_cleaner;
 

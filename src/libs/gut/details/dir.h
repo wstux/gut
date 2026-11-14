@@ -31,8 +31,7 @@
 #include <string>
 #include <string_view>
 
-#include "gut/details/generator.h"
-#include "gut/details/utils.h"
+#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {
@@ -62,11 +61,11 @@ public:
 
     int fd() const { return m_fd; }
 
-    bool is_open() const { return utils::is_open(m_fd); }
+    bool is_open() const;
 
-    bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
+    bool lock(bool is_exclusive) const;
 
-    ::time_t mtime() const { return utils::mtime(m_fd); }
+    ::time_t mtime() const;
 
     std::string_view name() const { return m_name; }
 
@@ -76,7 +75,7 @@ public:
 
     size_t size() const;
 
-    void unlock() const { utils::unlock(m_fd); }
+    void unlock() const;
 
 private:
     const ptr m_p_parent;
@@ -97,15 +96,15 @@ public:
 
     int fd() const { return m_fd; }
 
-    bool is_open() const { return utils::is_open(m_fd); }
+    bool is_open() const;
 
-    bool lock(bool is_exclusive) const { return utils::lock(m_fd, is_exclusive); }
+    bool lock(bool is_exclusive) const;
 
     bool open();
 
     std::string_view path() const { return m_path; }
 
-    void unlock() const { utils::unlock(m_fd); }
+    void unlock() const;
 
 private:
     std::string m_path;

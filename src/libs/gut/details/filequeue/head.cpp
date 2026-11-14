@@ -77,7 +77,7 @@ bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
 
 }
 
-head::head(const dir_t& root_dir, const is_stop_fn_t& is_stop_fn)
+head::head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn)
     : m_root_dir(root_dir)
     , m_is_stop_fn(is_stop_fn)
 {

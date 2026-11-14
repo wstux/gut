@@ -30,8 +30,6 @@
 
 #include "gut/details/dir.h"
 #include "gut/details/entry.h"
-#include "gut/details/types.h"
-#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/head.h"
 #include "gut/details/filequeue/tail.h"
 
@@ -43,7 +41,7 @@ namespace fq {
 class sink_queue final
 {
 public:
-    sink_queue(const std::string_view& root_dir, const is_stop_fn_t& is_stop_fn);
+    sink_queue(const std::string_view& root_dir, const std::function<bool()>& is_stop_fn);
 
     ~sink_queue();
 
@@ -62,7 +60,7 @@ private:
 class queue final
 {
 public:
-    queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn);
+    queue(const std::string_view& root_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
 
     ~queue();
 
@@ -76,11 +74,11 @@ public:
     bool push_item(entry& e);
 
 private:
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     dir_t m_root_dir;
 
-    cleaner::ptr m_p_cleaner;
+    cleaner_ptr_t m_p_cleaner;
     std::atomic_size_t m_cleaner_ts = 0;
 
     head m_queue_head;

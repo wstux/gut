@@ -25,12 +25,12 @@
 #ifndef _LIBS_GUT_DETAILS_CLEANER_H_
 #define _LIBS_GUT_DETAILS_CLEANER_H_
 
+#include <functional>
 #include <memory>
 #include <mutex>
 
 #include "gut/details/circular_buffer.h"
-#include "gut/details/dir.h"
-#include "gut/details/types.h"
+#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {
@@ -42,14 +42,14 @@ class cleaner final
 public:
     using ptr = std::shared_ptr<cleaner>;
 
-    explicit cleaner(is_stop_fn_t is_stop_fn);
+    explicit cleaner(std::function<bool()> is_stop_fn);
 
     /**
      *  \brief  Adds a directory to the queue for deferred cleanup.
      *  \param  p_dir - pointer to the directory.
      *  \return true if successfully added, false if already in the queue.
      */
-    bool push(const tmp_dir::ptr& p_dir);
+    bool push(const tmp_dir_ptr_t& p_dir);
 
     /**
      *  \brief  Performs one complete cleanup cycle for all directories accumulated
@@ -68,9 +68,9 @@ private:
     using busy_record_t = std::array<char, gk_name_buffer_size>;
 
 private:
-    bool perform(const tmp_dir::ptr& p_dir, int file_gap_seconds);
+    bool perform(const tmp_dir_ptr_t& p_dir, int file_gap_seconds);
 
-    bool pop(tmp_dir::ptr& p_dir);
+    bool pop(tmp_dir_ptr_t& p_dir);
 
     bool remove_file(dir_reader& reader, const char* name);
 
@@ -78,14 +78,14 @@ private:
     static constexpr size_t k_max_files_per_dir = 3000;
     static constexpr size_t k_queue_size = 4096;
 
-    const is_stop_fn_t m_is_stop_fn;
+    const std::function<bool()> m_is_stop_fn;
 
     std::mutex m_mutex;
 
     std::array<busy_record_t, k_max_files_per_dir> m_busy_pool;
     size_t m_busy_pool_size = 0;
 
-    circular_buffer<tmp_dir::ptr, k_queue_size> m_dir_queue;
+    circular_buffer<tmp_dir_ptr_t, k_queue_size> m_dir_queue;
 };
 
 } // namespace fq

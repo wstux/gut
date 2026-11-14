@@ -28,6 +28,7 @@
 #include <atomic>
 #include <thread>
 
+#include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
@@ -92,7 +93,7 @@ bool push_queue_item(entry& e, head& queue_head)
 ////////////////////////////////////////////////////////////////////////////////
 // class sink_queue
 
-sink_queue::sink_queue(const std::string_view& root_dir, const is_stop_fn_t& is_stop_fn)
+sink_queue::sink_queue(const std::string_view& root_dir, const std::function<bool()>& is_stop_fn)
     : m_root_dir(root_dir)
     , m_queue_head(m_root_dir, is_stop_fn)
 {}
@@ -122,13 +123,15 @@ bool sink_queue::push_item(entry& e)
 ////////////////////////////////////////////////////////////////////////////////
 // class queue
 
-queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const is_stop_fn_t& is_stop_fn)
+queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
     , m_root_dir(root_dir)
     , m_p_cleaner(p_cleaner)
     , m_queue_head(m_root_dir, m_is_stop_fn)
     , m_queue_tail(m_root_dir, m_p_cleaner, m_is_stop_fn)
-{}
+{
+    static_assert(std::is_same<cleaner_ptr_t, cleaner::ptr>::value);
+}
 
 queue::~queue()
 {
