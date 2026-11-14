@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794605096310,
+  "lastUpdate": 1794667556321,
   "repoUrl": "https://github.com/wstux/gut",
   "entries": {
     "Benchmark": [
@@ -96,6 +96,102 @@ window.BENCHMARK_DATA = {
             "value": 293.96060460926543,
             "unit": "ns/iter",
             "extra": "iterations: 2384416\ncpu: 293.8253790445962 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "wstux1@gmail.com",
+            "name": "wstux",
+            "username": "wstux"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "688ef793c69399734eb36798f4eb4d0a033920e2",
+          "message": "* all: #6 Merge remote-tracking branch 'wstux/feature/refactoring';",
+          "timestamp": "2026-11-14T17:44:45+03:00",
+          "tree_id": "87eca6c564fc8b301852b13ca1b4b88564560507",
+          "url": "https://github.com/wstux/gut/commit/688ef793c69399734eb36798f4eb4d0a033920e2"
+        },
+        "date": 1794667555563,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "perf_queue_create/real_time/threads:1",
+            "value": 16117.19172423135,
+            "unit": "ns/iter",
+            "extra": "iterations: 44298\ncpu: 16084.149645582193 ns\nthreads: 1"
+          },
+          {
+            "name": "perf_queue_create/real_time/threads:2",
+            "value": 37380.96063072273,
+            "unit": "ns/iter",
+            "extra": "iterations: 19660\ncpu: 37280.4009664293 ns\nthreads: 2"
+          },
+          {
+            "name": "perf_queue_create/real_time/threads:4",
+            "value": 85508.37203102557,
+            "unit": "ns/iter",
+            "extra": "iterations: 8252\ncpu: 84992.63136209405 ns\nthreads: 4"
+          },
+          {
+            "name": "perf_queue_create/real_time/threads:8",
+            "value": 154529.42742566895,
+            "unit": "ns/iter",
+            "extra": "iterations: 5112\ncpu: 83795.63067292642 ns\nthreads: 8"
+          },
+          {
+            "name": "perf_queue_move/iterations:1/real_time/threads:1",
+            "value": 356234357.0000053,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 354816046.99999994 ns\nthreads: 1"
+          },
+          {
+            "name": "perf_queue_move/iterations:1/real_time/threads:2",
+            "value": 365687139.000002,
+            "unit": "ns/iter",
+            "extra": "iterations: 2\ncpu: 360742453.5000001 ns\nthreads: 2"
+          },
+          {
+            "name": "perf_queue_move/iterations:1/real_time/threads:4",
+            "value": 437459878.50000036,
+            "unit": "ns/iter",
+            "extra": "iterations: 4\ncpu: 428312449.74999994 ns\nthreads: 4"
+          },
+          {
+            "name": "perf_queue_move/iterations:1/real_time/threads:8",
+            "value": 440899475.1249971,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 214175803.3750001 ns\nthreads: 8"
+          },
+          {
+            "name": "perf_queue_process_gut/real_time/threads:2",
+            "value": 541883.4853621064,
+            "unit": "ns/iter",
+            "extra": "iterations: 1298\ncpu: 14902.633281972105 ns\nthreads: 2"
+          },
+          {
+            "name": "perf_queue_process_gut/real_time/threads:4",
+            "value": 548095.8870716236,
+            "unit": "ns/iter",
+            "extra": "iterations: 1284\ncpu: 21157.991433022333 ns\nthreads: 4"
+          },
+          {
+            "name": "perf_queue_process_gut/real_time/threads:8",
+            "value": 564209.7525000148,
+            "unit": "ns/iter",
+            "extra": "iterations: 1200\ncpu: 27889.93333333339 ns\nthreads: 8"
+          },
+          {
+            "name": "perf_queue_empty_pop/real_time",
+            "value": 243.77588609010746,
+            "unit": "ns/iter",
+            "extra": "iterations: 2802847\ncpu: 243.63716428331625 ns\nthreads: 1"
           }
         ]
       }
