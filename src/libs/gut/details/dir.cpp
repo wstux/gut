@@ -32,6 +32,7 @@
 #include <utility>
 
 #include "gut/details/dir.h"
+#include "gut/details/generator.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/utils.h"
 

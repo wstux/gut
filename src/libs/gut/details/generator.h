@@ -27,17 +27,11 @@
 
 #include <cstddef>
 
+#include "gut/details/fwd.h"
+
 namespace wstux {
 namespace gut {
 namespace details {
-
-constexpr size_t gk_name_length = 9;
-constexpr size_t gk_name_buffer_size = gk_name_length + 1;
-
-constexpr size_t gk_filename_ext_length = 4;
-constexpr size_t gk_filename_length = gk_name_length + gk_filename_ext_length;
-constexpr size_t gk_filename_buffer_size = gk_filename_length + 1;
-
 
 /**
  *  \brief  Generating unique chronological name.

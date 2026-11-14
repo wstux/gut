@@ -30,19 +30,14 @@
 #include <memory>
 #include <string_view>
 
-#include "gut/details/generator.h"
+#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
 
-class tmp_dir;
-
 class entry final
 {
-public:
-    using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
-
 public:
     entry();
 

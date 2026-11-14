@@ -31,7 +31,7 @@
 #include <string>
 #include <string_view>
 
-#include "gut/details/generator.h"
+#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {

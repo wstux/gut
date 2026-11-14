@@ -29,6 +29,7 @@
 
 #include <cstring>
 
+#include "gut/details/dir.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/utils.h"
 #include "gut/details/filequeue/cleaner.h"
@@ -40,7 +41,9 @@ namespace fq {
 
 cleaner::cleaner(std::function<bool()> is_stop_fn)
     : m_is_stop_fn(std::move(is_stop_fn))
-{}
+{
+    static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
+}
 
 bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
 {

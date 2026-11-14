@@ -26,23 +26,17 @@
 #define _LIBS_GUT_DETAILS_FILEQUEUE_HEAD_H_
 
 #include <functional>
-#include <memory>
 #include <mutex>
+
+#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
-
-class dir_t;
-class tmp_dir;
-
 namespace fq {
 
 class head final
 {
-public:
-    using tmp_dir_ptr_t = std::shared_ptr<tmp_dir>;
-
 public:
     head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn);
 
