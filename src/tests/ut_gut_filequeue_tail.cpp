@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include "gut/logging_handler.h"
 #include "gut/details/directory.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
@@ -83,7 +84,7 @@ public:
 
     fq::tail make_tail()
     {
-        return fq::tail(*m_p_work_dir, m_p_cleaner, []() { return false; });
+        return fq::tail(*m_p_work_dir, m_p_cleaner, m_p_logger, []() { return false; });
     }
 
     details::tmp_dir::ptr make_tmp_dir(const std::string& dir_name, const int parent_fd) const
@@ -141,6 +142,7 @@ private:
     std::filesystem::path m_work_path;
     std::shared_ptr<details::directory> m_p_work_dir;
     details::fq::cleaner::ptr m_p_cleaner;
+    gut::logging_handler::ptr m_p_logger;
 };
 
 } // <anonymous> namespace

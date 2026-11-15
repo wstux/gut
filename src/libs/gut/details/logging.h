@@ -34,12 +34,12 @@ namespace wstux {
 namespace gut {
 namespace details {
 
-bool can_log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl)
+inline bool can_log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl)
 {
     return p_hdlr && p_hdlr->can_log_fn(p_hdlr->p_this, lvl);
 }
 
-void log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl, const char* p_fmt, ...)
+inline void log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl, const char* p_fmt, ...)
 {
     char buffer[256];
 

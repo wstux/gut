@@ -33,6 +33,7 @@
 #include <cstring>
 
 #include "gut/details/entry.h"
+#include "gut/details/logging.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/utils/generator.h"
 #include "gut/details/utils/tmp_dir.h"
@@ -41,7 +42,8 @@ namespace wstux {
 namespace gut {
 namespace details {
 
-entry::entry()
+entry::entry(const logging_handler::ptr& p_logger)
+    : m_p_logger(p_logger)
 {
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
 
@@ -122,6 +124,7 @@ const void* entry::map(const off64_t offset, const size_t size)
         m_map_size = size;
     } else {
         m_map_addr = nullptr;
+        GUT_LOG_WARN(m_p_logger, "Failed to mmap entry '%s'. Errno %d", m_name, errno);
     }
 
     return m_map_addr;
@@ -151,6 +154,7 @@ bool entry::move(const tmp_dir::ptr& p_new_parent_dir)
         std::atomic_store(&m_p_parent_dir, p_new_parent_dir);
         return true;
     }
+    GUT_LOG_WARN(m_p_logger, "Failed to move entry '%s'. Errno %d", m_name, errno);
     return false;
 }
 
@@ -170,9 +174,11 @@ bool entry::open(const tmp_dir::ptr& p_parent_dir, const std::string_view& name)
     constexpr int mode = S_IRUSR | S_IWUSR; // 0600
     m_fd = RETRY_EINTR(::openat(p_parent_dir->fd(), name.data(), flags, mode));
     if (! __GUT_IS_OPEN_FD(m_fd)) {
+        GUT_LOG_WARN(m_p_logger, "Failed to open entry '%s'. Errno %d", m_name, errno);
         return false;
     }
     if (! __GUT_LOCK_FD(m_fd, true)) {
+        GUT_LOG_WARN(m_p_logger, "Failed to lock entry '%s'. Errno %d", m_name, errno);
         __GUT_CLOSE_FD(m_fd);
         return false;
     }
@@ -191,6 +197,7 @@ ssize_t entry::read(const off64_t offset, char* p_buffer, size_t size)
     }
 
     if (::lseek(m_fd, offset, SEEK_SET) < 0) {
+        GUT_LOG_WARN(m_p_logger, "Failed to seek offset for entry '%s' reading. Errno %d", m_name, errno);
         return -1;
     }
 
@@ -199,6 +206,7 @@ ssize_t entry::read(const off64_t offset, char* p_buffer, size_t size)
     do {
         chunk_size = ::read(m_fd, &p_buffer[read_size], size);
         if ((chunk_size < 0) && (errno != EINTR)) {
+            GUT_LOG_WARN(m_p_logger, "Failed to read data for entry '%s'. Errno %d", m_name, errno);
             return chunk_size;
         }
 
@@ -223,6 +231,7 @@ bool entry::remove()
 
     const int rc = RETRY_EINTR(::unlinkat(p_dir->fd(), m_name, 0));
     if (rc != 0) {
+        GUT_LOG_WARN(m_p_logger, "Failed to unlink entry '%s'. Errno %d", m_name, errno);
         return false;
     }
     close();
@@ -252,6 +261,7 @@ bool entry::truncate(const size_t size)
         }
         return true;
     }
+    GUT_LOG_WARN(m_p_logger, "Failed to truncate entry '%s'. Errno %d", m_name, errno);
     return false;
 }
 
@@ -260,6 +270,7 @@ void entry::unmap()
     if (m_map_addr) {
         const int rc = RETRY_EINTR(::munmap((void*)m_map_addr, m_map_size));
         if (rc != 0) {
+            GUT_LOG_ERROR(m_p_logger, "Failed to unmap for entry '%s'. Errno %d", m_name, errno);
             // \todo Need to do something
         }
 
@@ -280,6 +291,7 @@ ssize_t entry::write(const char* p_data, const ssize_t size, const off64_t offse
 
     if (offset >= 0) {
         if (::lseek(m_fd, offset, SEEK_SET) < 0) {
+            GUT_LOG_WARN(m_p_logger, "Failed to seek offset for entry '%s' writing. Errno %d", m_name, errno);
             return  -1;
         }
     }
@@ -290,6 +302,7 @@ ssize_t entry::write(const char* p_data, const ssize_t size, const off64_t offse
             if (errno == EINTR) {
                 continue;
             }
+            GUT_LOG_WARN(m_p_logger, "Failed to write data for entry '%s'. Errno %d", m_name, errno);
             return total;
         }
         total += written;

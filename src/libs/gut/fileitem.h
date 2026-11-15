@@ -28,6 +28,7 @@
 #include <memory>
 #include <string_view>
 
+#include "gut/logging_handler.h"
 #include "gut/details/entry.h"
 
 namespace wstux {
@@ -65,9 +66,12 @@ public:
 private:
     friend filequeue;
     friend sink_filequeue;
-    friend ptr std::make_unique<fileitem>();
+    friend ptr std::make_unique<fileitem>(::wstux::gut::logging_handler::ptr&);
+
+    explicit fileitem(logging_handler::ptr& p_logger);
 
 private:
+    const logging_handler::ptr& m_p_logger;
     details::entry m_entry;
 };
 

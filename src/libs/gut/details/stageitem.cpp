@@ -25,26 +25,31 @@
 #include <cassert>
 
 #include "gut/stageitem.h"
+#include "gut/details/logging.h"
 #include "gut/details/filequeue/queue.h"
 
 namespace wstux {
 namespace gut {
 
-stageitem::stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue)
-    : m_commit_queue(commit_queue)
+stageitem::stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, logging_handler::ptr& p_logger)
+    : m_p_logger(p_logger)
+    , m_entry(m_p_logger)
+    , m_commit_queue(commit_queue)
     , m_rollback_queue(rollback_queue)
 {}
 
 bool stageitem::commit()
 {
     assert(m_entry.is_alive());
-    //assert(m_p_commit_queue);
-    //assert(! m_p_current_queue);
     assert(! m_is_moved);
+
+    if (m_is_moved) {
+        GUT_LOG_ERROR(m_p_logger, "Item '%s' already has been commited", m_entry.name().data());
+        return false;
+    }
 
     const bool rc = m_commit_queue.push_item(m_entry);
     if (rc) {
-        //m_p_current_queue = m_p_commit_queue;
         m_is_moved = true;
         m_entry.close();
         return true;
@@ -96,13 +101,14 @@ bool stageitem::remove()
 bool stageitem::rollback()
 {
     assert(m_entry.is_alive());
-    //assert(m_p_rollback_queue);
-    //assert(! m_p_current_queue);
     assert(! m_is_moved);
 
-    const bool rc = m_rollback_queue.push_item(m_entry);
-    if (rc) {
-        //m_p_current_queue = m_p_rollback_queue;
+    if (m_is_moved) {
+        GUT_LOG_ERROR(m_p_logger, "Item '%s' already has been rollbacked", m_entry.name().data());
+        return false;
+    }
+
+    if (m_rollback_queue.push_item(m_entry)) {
         m_is_moved = true;
         m_entry.close();
         return true;

@@ -28,6 +28,7 @@
 #include <atomic>
 #include <thread>
 
+#include "gut/details/logging.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
 #include "gut/details/utils/tmp_dir.h"
@@ -59,14 +60,16 @@ size_t monotime()
     return static_cast<size_t>(::time(nullptr));
 }
 
-bool open_queue(directory& nook_dir)
+bool open_queue(directory& nook_dir, const logging_handler::ptr& p_logger)
 {
     assert(! nook_dir.is_open());
 
     if (! nook_dir.open()) {
+        GUT_LOG_WARN(p_logger, "Failed to open nook directory %s. Errno %d", nook_dir.path().data(), errno);
         return false;
     }
     if (! nook_dir.lock(false)) {
+        GUT_LOG_WARN(p_logger, "Failed to lock nook directory %s. Errno %d", nook_dir.path().data(), errno);
         return false;
     }
     return true;
@@ -94,9 +97,10 @@ bool push_queue_item(entry& e, head& queue_head)
 ////////////////////////////////////////////////////////////////////////////////
 // class sink_queue
 
-sink_queue::sink_queue(const std::string_view& nook_dir, const std::function<bool()>& is_stop_fn)
+sink_queue::sink_queue(const std::string_view& nook_dir, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn)
     : m_nook_dir(nook_dir)
-    , m_queue_head(m_nook_dir, is_stop_fn)
+    , m_p_logger(p_logger)
+    , m_queue_head(m_nook_dir, m_p_logger, is_stop_fn)
 {}
 
 sink_queue::~sink_queue()
@@ -113,7 +117,7 @@ bool sink_queue::create_item(entry& e, const std::string_view& name)
 
 bool sink_queue::open()
 {
-    return open_queue(m_nook_dir);
+    return open_queue(m_nook_dir, m_p_logger);
 }
 
 bool sink_queue::push_item(entry& e)
@@ -124,12 +128,14 @@ bool sink_queue::push_item(entry& e)
 ////////////////////////////////////////////////////////////////////////////////
 // class queue
 
-queue::queue(const std::string_view& nook_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
+queue::queue(const std::string_view& nook_dir, const cleaner::ptr& p_cleaner,
+             const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
     , m_nook_dir(nook_dir)
+    , m_p_logger(p_logger)
     , m_p_cleaner(p_cleaner)
-    , m_queue_head(m_nook_dir, m_is_stop_fn)
-    , m_queue_tail(m_nook_dir, m_p_cleaner, m_is_stop_fn)
+    , m_queue_head(m_nook_dir, m_p_logger, m_is_stop_fn)
+    , m_queue_tail(m_nook_dir, m_p_cleaner, m_p_logger, m_is_stop_fn)
 {
     static_assert(std::is_same<cleaner_ptr_t, cleaner::ptr>::value);
 }
@@ -150,7 +156,7 @@ bool queue::open()
 {
     assert(! m_nook_dir.is_open());
 
-    if (! open_queue(m_nook_dir)) {
+    if (! open_queue(m_nook_dir, m_p_logger)) {
         return false;
     }
     if (! m_queue_tail.start()) {

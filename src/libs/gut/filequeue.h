@@ -82,9 +82,9 @@ private:
     const std::string m_path;
     const std::function<bool()> m_is_stop_fn;
 
-    details::fq::sink_queue m_queue;
-
     logging_handler::ptr m_p_logger;
+
+    details::fq::sink_queue m_queue;
 };
 
 class filequeue final
@@ -152,11 +152,11 @@ private:
     const std::string m_path;
     const std::function<bool()> m_is_stop_fn;
 
+    logging_handler::ptr m_p_logger;
+
     details::fq::cleaner_ptr_t m_p_cleaner;
 
     details::fq::queue m_queue;
-
-    logging_handler::ptr m_p_logger;
 };
 
 } // namespace gut

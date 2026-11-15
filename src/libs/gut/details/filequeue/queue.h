@@ -30,6 +30,7 @@
 
 #include "gut/details/directory.h"
 #include "gut/details/entry.h"
+#include "gut/logging_handler.h"
 #include "gut/details/filequeue/head.h"
 #include "gut/details/filequeue/tail.h"
 
@@ -41,7 +42,7 @@ namespace fq {
 class sink_queue final
 {
 public:
-    sink_queue(const std::string_view& nook_dir, const std::function<bool()>& is_stop_fn);
+    sink_queue(const std::string_view& nook_dir, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
 
     ~sink_queue();
 
@@ -53,6 +54,7 @@ public:
 
 private:
     directory m_nook_dir;
+    const logging_handler::ptr& m_p_logger;
 
     head m_queue_head;
 };
@@ -60,7 +62,8 @@ private:
 class queue final
 {
 public:
-    queue(const std::string_view& nook_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
+    queue(const std::string_view& nook_dir, const cleaner_ptr_t& p_cleaner,
+          const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
 
     ~queue();
 
@@ -77,6 +80,7 @@ private:
     const std::function<bool()> m_is_stop_fn;
 
     directory m_nook_dir;
+    const logging_handler::ptr& m_p_logger;
 
     cleaner_ptr_t m_p_cleaner;
     std::atomic_size_t m_cleaner_ts = 0;

@@ -66,11 +66,11 @@ std::string make_queue_path(const std::string_view& root_path, const std::string
 stagequeue::stagequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
-    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
-    , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
-    , m_output(make_queue_path(path, "output"), m_is_stop_fn)
     , m_p_logger(std::move(p_logger))
+    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
+    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_p_logger, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_p_logger, m_is_stop_fn)
+    , m_output(make_queue_path(path, "output"), m_p_logger, m_is_stop_fn)
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
@@ -79,18 +79,18 @@ stagequeue::stagequeue(const std::string_view& path, const std::string_view& out
                        const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
-    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_is_stop_fn)
-    , m_proc(make_queue_path(path, "proc"), m_is_stop_fn)
-    , m_output(make_queue_path(out_path, "input"), m_is_stop_fn)
     , m_p_logger(std::move(p_logger))
+    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
+    , m_input(make_queue_path(path, "input"), m_p_cleaner, m_p_logger, m_is_stop_fn)
+    , m_proc(make_queue_path(path, "proc"), m_p_logger, m_is_stop_fn)
+    , m_output(make_queue_path(out_path, "input"), m_p_logger, m_is_stop_fn)
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
 stagequeue::item::ptr stagequeue::create()
 {
-    item::ptr p_item = std::make_unique<item>(m_output, m_input);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input, m_p_logger);
 
     if (! m_proc.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -173,7 +173,7 @@ bool stagequeue::open()
 
 stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>(m_output, m_input);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input, m_p_logger);
 
     if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());

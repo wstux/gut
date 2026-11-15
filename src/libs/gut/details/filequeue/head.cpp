@@ -27,6 +27,7 @@
 #include <thread>
 #include <type_traits>
 
+#include "gut/details/logging.h"
 #include "gut/details/filequeue/head.h"
 #include "gut/details/utils/tmp_dir.h"
 
@@ -37,10 +38,11 @@ namespace fq {
 namespace {
 
 template<typename T>
-bool create_tmp_dir(const T& patent, tmp_dir::ptr& p_dir)
+bool create_tmp_dir(const T& patent, tmp_dir::ptr& p_dir, const logging_handler::ptr& p_logger)
 {
     tmp_dir::ptr p_tmp_dir = std::make_shared<tmp_dir>(patent);
     if (! p_tmp_dir->create() || ! p_tmp_dir->lock(false)) {
+        GUT_LOG_ERROR(p_logger, "Failed to create/lock directory '%s'. Errno %d", p_tmp_dir->name().data(), errno);
         p_tmp_dir.reset();
         return false;
     }
@@ -75,10 +77,11 @@ bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
     return false;
 }
 
-}
+} // <anonymous> namespace
 
-head::head(const directory& nook_dir, const std::function<bool()>& is_stop_fn)
+head::head(const directory& nook_dir, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn)
     : m_nook_dir(nook_dir)
+    , m_p_logger(p_logger)
     , m_is_stop_fn(is_stop_fn)
 {
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
@@ -114,8 +117,8 @@ tmp_dir::ptr head::rotate(bool force_rotation)
     for (size_t i = 0; ! is_acceptable_dir(p_active_dir) && i < 100 && ! m_is_stop_fn(); ++i) {
         assert(m_nook_dir.is_open());
 
-        if (is_acceptable_dir(m_p_primary_dir) || create_tmp_dir(m_nook_dir.fd(), m_p_primary_dir)) {
-            if (create_tmp_dir(m_p_primary_dir, m_p_active_dir)) {
+        if (is_acceptable_dir(m_p_primary_dir) || create_tmp_dir(m_nook_dir.fd(), m_p_primary_dir, m_p_logger)) {
+            if (create_tmp_dir(m_p_primary_dir, m_p_active_dir, m_p_logger)) {
                 break;
             }
         }

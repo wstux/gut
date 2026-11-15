@@ -133,13 +133,13 @@ private:
     const std::string m_path;
     const std::function<bool()> m_is_stop_fn;
 
+    logging_handler::ptr m_p_logger;
+
     details::fq::cleaner_ptr_t m_p_cleaner;
 
     details::fq::queue m_input;
     details::fq::sink_queue m_proc;
     details::fq::sink_queue m_output;
-
-    logging_handler::ptr m_p_logger;
 };
 
 } // namespace gut

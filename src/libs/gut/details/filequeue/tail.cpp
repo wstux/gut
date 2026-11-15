@@ -29,6 +29,7 @@
 
 #include <type_traits>
 
+#include "gut/details/logging.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/tail.h"
 #include "gut/details/utils/tmp_dir.h"
@@ -45,9 +46,11 @@ public:
     using ptr = std::unique_ptr<active_tier>;
 
 public:
-    active_tier(const directory& nook_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+    active_tier(const directory& nook_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir,
+                notifier& notifier, const logging_handler::ptr& p_logger)
         : m_p_dir(p_dir)
-        , m_p_notifier(p_notifier)
+        , m_p_logger(p_logger)
+        , m_notifier(notifier)
     {
         assert(m_p_dir && m_p_dir->is_open());
 
@@ -58,7 +61,7 @@ public:
             static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
         assert(len > 0 && len < static_cast<int>(sizeof(path)));
 
-        m_wd = m_p_notifier->add_watch(path, IN_CREATE | IN_MOVED_TO,
+        m_wd = m_notifier.add_watch(path, IN_CREATE | IN_MOVED_TO,
             [this](uint32_t mask, const std::string_view& name) {
                 if (name.empty()) {
                     m_files.clear();
@@ -67,13 +70,16 @@ public:
                     m_files.emplace(name);
                 }
             });
+        if (m_wd < 0) {
+            GUT_LOG_WARN(m_p_logger, "Failed to add notify to active directory '%s'. Errno %d", path, errno);
+        }
         reload();
     }
 
     ~active_tier()
     {
-        if (m_wd >= 0 && m_p_notifier) {
-            m_p_notifier->remove_watch(m_wd);
+        if (m_wd >= 0) {
+            m_notifier.remove_watch(m_wd);
             m_wd = -1;
         }
     }
@@ -107,6 +113,8 @@ private:
                     if (name != "." && name != "..") {
                         m_files.emplace(name);
                     }
+                } else {
+                    GUT_LOG_WARN(m_p_logger, "Unexpected file '%s' in active directory '%s'", p_ent->d_name, m_p_dir->name().data());
                 }
             }
             scanner.close();
@@ -115,7 +123,8 @@ private:
 
 private:
     tmp_dir::ptr m_p_dir;
-    notifier* m_p_notifier;
+    const logging_handler::ptr& m_p_logger;
+    notifier& m_notifier;
     int m_wd = -1;
     std::set<std::string> m_files;
 };
@@ -130,33 +139,6 @@ private:
     return static_cast<size_t>(::time(nullptr)) * 1000;
 }*/
 
-template<typename TParent>
-bool reload_dir(const TParent& parent, std::set<tmp_dir::ptr>& pool, const std::string cur_name = std::string())
-{
-    assert(pool.empty());
-
-    dir_reader scanner;
-    if (! scanner.opendir(parent)) {
-        return false;
-    }
-
-    while (struct ::dirent* p_ent = scanner.readdir()) {
-        if (p_ent->d_type == DT_DIR) {
-            const std::string_view dir_name = p_ent->d_name;
-            if (dir_name == "." || dir_name == "..") {
-                continue;
-            }
-            if (! cur_name.empty() && dir_name <= cur_name) {
-                continue;
-            }
-            assert(dir_name.size() == gk_name_length);
-            pool.emplace(std::make_shared<tmp_dir>(dir_name, parent));
-        }
-    }
-    scanner.close();
-    return true;
-}
-
 } // <anonymous> namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -165,10 +147,11 @@ bool reload_dir(const TParent& parent, std::set<tmp_dir::ptr>& pool, const std::
 class tail::primary_tier final
 {
 public:
-    primary_tier(const directory& parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+    primary_tier(const directory& parent_dir, const tmp_dir::ptr& p_dir, notifier& notifier, const logging_handler::ptr& p_logger)
         : m_parent_dir(parent_dir)
+        , m_p_logger(p_logger)
         , m_p_dir(p_dir)
-        , m_p_notifier(p_notifier)
+        , m_notifier(notifier)
     {
         assert(m_p_dir && m_p_dir->is_open());
 
@@ -178,7 +161,7 @@ public:
             static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
         assert(len > 0 && len < static_cast<int>(sizeof(path)));
 
-        m_wd = m_p_notifier->add_watch(path, IN_CREATE | IN_MOVED_TO,
+        m_wd = m_notifier.add_watch(path, IN_CREATE | IN_MOVED_TO,
             [this](uint32_t mask, const std::string_view& name) {
                 if (name.empty()) {
                     m_active_pool.clear();
@@ -187,13 +170,16 @@ public:
                     m_active_pool.emplace(name);
                 }
             });
+        if (m_wd < 0) {
+            GUT_LOG_WARN(m_p_logger, "Failed to add notify to primary directory '%s'. Errno %d", path, errno);
+        }
         reload();
     }
 
     ~primary_tier()
     {
-        if (m_wd >= 0 && m_p_notifier) {
-            m_p_notifier->remove_watch(m_wd);
+        if (m_wd >= 0) {
+            m_notifier.remove_watch(m_wd);
             m_wd = -1;
         }
     }
@@ -211,7 +197,7 @@ public:
 
             tmp_dir::ptr p_active_dir = std::make_shared<tmp_dir>(active_dir_name, m_p_dir);
             if (p_active_dir->open() && p_active_dir->lock(false)) {
-                active_tier::ptr p_child = std::make_unique<active_tier>(m_parent_dir, m_p_dir, p_active_dir, m_p_notifier);
+                active_tier::ptr p_child = std::make_unique<active_tier>(m_parent_dir, m_p_dir, p_active_dir, m_notifier, m_p_logger);
                 if (! p_child->empty() || ! p_active_dir->lock(true)) {
                     m_active_tiers.emplace(active_dir_name, std::move(p_child));
                 } else {
@@ -258,6 +244,8 @@ private:
                     if (name != "." && name != "..") {
                         m_active_pool.emplace(name);
                     }
+                } else {
+                    GUT_LOG_WARN(m_p_logger, "Unexpected file '%s' in primary directory '%s'", p_ent->d_name, m_p_dir->name().data());
                 }
             }
             scanner.close();
@@ -266,8 +254,9 @@ private:
 
 private:
     const directory& m_parent_dir;
+    const logging_handler::ptr& m_p_logger;
     tmp_dir::ptr m_p_dir;
-    notifier* m_p_notifier;
+    notifier& m_notifier;
     int m_wd = -1;
     std::set<std::string> m_active_pool;
     std::map<std::string, active_tier::ptr> m_active_tiers;
@@ -276,8 +265,10 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class tail
 
-tail::tail(const directory& nook_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
+tail::tail(const directory& nook_dir, const cleaner::ptr& p_cleaner, const logging_handler::ptr& p_logger,
+           const std::function<bool()>& is_stop_fn)
     : m_nook_dir(nook_dir)
+    , m_p_logger(p_logger)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(p_cleaner)
 {
@@ -309,7 +300,7 @@ bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
 
             tmp_dir::ptr p_primary_dir = std::make_shared<tmp_dir>(primary_name, m_nook_dir.fd());
             if (p_primary_dir->open() && p_primary_dir->lock(false)) {
-                m_primary_tiers.emplace(primary_name, std::make_shared<primary_tier>(m_nook_dir, p_primary_dir, &m_notifier));
+                m_primary_tiers.emplace(primary_name, std::make_shared<primary_tier>(m_nook_dir, p_primary_dir, m_notifier, m_p_logger));
             }
         }
 
@@ -360,16 +351,21 @@ bool tail::reload()
                 if (name != "." && name != "..") {
                     m_primary_pool.emplace(name);
                 }
+            } else {
+                GUT_LOG_WARN(m_p_logger, "Unexpected file '%s' in nook directory '%s'", p_ent->d_name, m_nook_dir.path().data());
             }
         }
         scanner.close();
         return true;
     }
+    GUT_LOG_ERROR(m_p_logger, "Failed to opendir '%s'", m_nook_dir.path().data());
     return false;
 }
 
 bool tail::start()
 {
+    assert(m_root_wd == -1);
+
     m_root_wd = m_notifier.add_watch(m_nook_dir.path(), IN_CREATE | IN_MOVED_TO,
         [this](uint32_t mask, const std::string_view& name) {
             if (name.empty()) {
@@ -380,6 +376,7 @@ bool tail::start()
             }
         });
     if (m_root_wd < 0) {
+        GUT_LOG_WARN(m_p_logger, "Failed to add notify to directory '%s'. Errno %d", m_nook_dir.path().data(), errno);
         return false;
     }
     return reload();

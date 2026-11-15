@@ -29,6 +29,11 @@
 namespace wstux {
 namespace gut {
 
+fileitem::fileitem(logging_handler::ptr& p_logger)
+    : m_p_logger(p_logger)
+    , m_entry(m_p_logger)
+{}
+
 bool fileitem::is_alive() const
 {
     return m_entry.is_alive();

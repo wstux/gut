@@ -60,15 +60,15 @@ bool create_queue_dir(const std::filesystem::path& path, const logging_handler::
 sink_filequeue::sink_filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_queue(path, m_is_stop_fn)
     , m_p_logger(std::move(p_logger))
+    , m_queue(path, m_p_logger, m_is_stop_fn)
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
 sink_filequeue::item::ptr sink_filequeue::create()
 {
-    item::ptr p_item = std::make_unique<item>();
+    item::ptr p_item = std::make_unique<item>(m_p_logger);
 
     if (! m_queue.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -126,16 +126,16 @@ bool sink_filequeue::push(const item::ptr& p_item)
 filequeue::filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
-    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
-    , m_queue(path, m_p_cleaner, m_is_stop_fn)
     , m_p_logger(std::move(p_logger))
+    , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
+    , m_queue(path, m_p_cleaner, m_p_logger, m_is_stop_fn)
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
 filequeue::item::ptr filequeue::create()
 {
-    item::ptr p_item = std::make_unique<item>();
+    item::ptr p_item = std::make_unique<item>(m_p_logger);
 
     if (! m_queue.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -178,7 +178,7 @@ bool filequeue::open()
 
 filequeue::item::ptr filequeue::pop(filequeue& queue, size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>();
+    item::ptr p_item = std::make_unique<item>(m_p_logger);
 
     if (! m_queue.pop_item(p_item->m_entry, queue.m_queue, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
@@ -191,7 +191,7 @@ filequeue::item::ptr filequeue::pop(filequeue& queue, size_t wait_ms)
 
 filequeue::item::ptr filequeue::pop(sink_filequeue& queue, size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>();
+    item::ptr p_item = std::make_unique<item>(m_p_logger);
 
     if (! m_queue.pop_item(p_item->m_entry, queue.m_queue, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
