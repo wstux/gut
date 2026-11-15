@@ -85,21 +85,15 @@ public:
 
 private:
     friend class stage_queue;
-    //friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::queue*&&,
-    //    ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
-    friend ptr std::make_unique<stage_item>(::wstux::gut::details::fq::sink_queue*&&,
-        ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_item>(::wstux::gut::details::fq::sink_queue&, ::wstux::gut::details::fq::queue&);
 
-    stage_item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn);
+    stage_item(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue);
 
 private:
-    const std::function<bool()> m_is_stop_fn;
-
     details::entry m_entry;
 
-    details::fq::sink_queue* m_p_commit_queue = nullptr;
-    details::fq::queue* m_p_rollback_queue = nullptr;
-    //details::fq::queue* m_p_current_queue = nullptr;
+    details::fq::sink_queue& m_commit_queue;
+    details::fq::queue& m_rollback_queue;
     bool m_is_moved = false;
 };
 

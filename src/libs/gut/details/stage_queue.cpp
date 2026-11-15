@@ -67,7 +67,7 @@ stage_queue::stage_queue(const std::string_view& path, const std::string_view& o
 
 stage_queue::item::ptr stage_queue::create()
 {
-    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input);
 
     if (! m_proc.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -169,7 +169,7 @@ bool stage_queue::open()
 
 stage_queue::item::ptr stage_queue::pop(size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input);
 
     if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
