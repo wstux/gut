@@ -29,9 +29,9 @@
 
 #include <type_traits>
 
-#include "gut/details/dir.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/tail.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {

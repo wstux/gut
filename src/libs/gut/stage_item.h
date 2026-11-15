@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_ITEM_H_
-#define _LIBS_GUT_ITEM_H_
+#ifndef _LIBS_GUT_STAGE_ITEM_H_
+#define _LIBS_GUT_STAGE_ITEM_H_
 
 #include <memory>
 #include <string_view>
@@ -106,4 +106,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_ITEM_H_ */
+#endif /* _LIBS_GUT_STAGE_ITEM_H_ */

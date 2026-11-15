@@ -28,6 +28,7 @@
 #include <functional>
 #include <mutex>
 
+#include "gut/details/directory.h"
 #include "gut/details/fwd.h"
 
 namespace wstux {

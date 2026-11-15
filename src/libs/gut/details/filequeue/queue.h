@@ -28,7 +28,7 @@
 #include <atomic>
 #include <string_view>
 
-#include "gut/details/dir.h"
+#include "gut/details/directory.h"
 #include "gut/details/entry.h"
 #include "gut/details/filequeue/head.h"
 #include "gut/details/filequeue/tail.h"

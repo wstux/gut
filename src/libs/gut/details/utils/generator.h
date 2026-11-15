@@ -22,12 +22,10 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_GENERATOR_H_
-#define _LIBS_GUT_DETAILS_GENERATOR_H_
+#ifndef _LIBS_GUT_DETAILS_UTILS_GENERATOR_H_
+#define _LIBS_GUT_DETAILS_UTILS_GENERATOR_H_
 
 #include <cstddef>
-
-#include "gut/details/fwd.h"
 
 namespace wstux {
 namespace gut {
@@ -61,4 +59,4 @@ void generate_name(char* p_bufer, size_t size);
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_DETAILS_GENERATOR_H_ */
+#endif /* _LIBS_GUT_DETAILS_UTILS_GENERATOR_H_ */

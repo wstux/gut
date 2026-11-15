@@ -29,6 +29,7 @@
 #include <set>
 #include <string>
 
+#include "gut/details/directory.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/notifier.h"
 

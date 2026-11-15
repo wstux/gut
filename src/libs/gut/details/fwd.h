@@ -40,7 +40,6 @@ using cleaner_ptr_t = std::shared_ptr<cleaner>;
 
 } // namespace fq
 
-class directory;
 class dir_reader;
 class tmp_dir;
 

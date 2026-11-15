@@ -27,8 +27,8 @@
 #include <thread>
 #include <type_traits>
 
-#include "gut/details/dir.h"
 #include "gut/details/filequeue/head.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {

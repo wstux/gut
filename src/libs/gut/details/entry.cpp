@@ -29,12 +29,13 @@
 #include <sys/stat.h>
 
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 
-#include "gut/details/dir.h"
 #include "gut/details/entry.h"
-#include "gut/details/generator.h"
 #include "gut/details/retry_eintr.h"
+#include "gut/details/utils/generator.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {

@@ -30,9 +30,9 @@
 
 #include <cstring>
 
-#include "gut/details/dir.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {

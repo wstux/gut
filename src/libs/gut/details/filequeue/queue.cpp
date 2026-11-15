@@ -30,6 +30,7 @@
 
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/queue.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {

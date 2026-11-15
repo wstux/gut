@@ -22,13 +22,12 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_DETAILS_DIR_H_
-#define _LIBS_GUT_DETAILS_DIR_H_
+#ifndef _LIBS_GUT_DETAILS_UTILS_TMP_DIR_H_
+#define _LIBS_GUT_DETAILS_UTILS_TMP_DIR_H_
 
 #include <dirent.h>
 
 #include <memory>
-#include <string>
 #include <string_view>
 
 #include "gut/details/fwd.h"
@@ -46,8 +45,6 @@ public:
     explicit tmp_dir(int parent_fd);
 
     explicit tmp_dir(const ptr& p_parent);
-
-    tmp_dir(const char* p_name, int parent_fd);
 
     tmp_dir(const std::string_view& name, int parent_fd);
 
@@ -83,32 +80,6 @@ private:
 
     int m_fd = -1;
     char m_name[gk_name_buffer_size];
-};
-
-class directory final
-{
-public:
-    explicit directory(std::string dir_path);
-
-    explicit directory(std::string_view dir_path);
-
-    ~directory();
-
-    int fd() const { return m_fd; }
-
-    bool is_open() const;
-
-    bool lock(bool is_exclusive) const;
-
-    bool open();
-
-    std::string_view path() const { return m_path; }
-
-    void unlock() const;
-
-private:
-    std::string m_path;
-    int m_fd = -1;
 };
 
 class dir_reader final
@@ -148,4 +119,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_DETAILS_DIR_H_ */
+#endif /* _LIBS_GUT_DETAILS_UTILS_TMP_DIR_H_ */

@@ -31,9 +31,10 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/dir.h"
+#include "gut/details/directory.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace {
 

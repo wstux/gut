@@ -29,80 +29,16 @@
 
 #include <cassert>
 #include <cstring>
-#include <filesystem>
 #include <utility>
 
-#include "gut/details/dir.h"
-#include "gut/details/generator.h"
+#include "gut/details/directory.h"
 #include "gut/details/retry_eintr.h"
+#include "gut/details/utils/generator.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {
 namespace details {
-namespace {
-
-int open_at(int dir_fd, const char* name, int flags)
-{
-    int fd = RETRY_EINTR(::openat(dir_fd, name, flags, 0));
-    if (! __GUT_IS_OPEN_FD(fd)) {
-        switch (errno) {
-        case EINVAL:
-            if (flags & O_CLOEXEC) {
-                flags &= ~O_CLOEXEC;
-                fd = open_at(dir_fd, name, flags);
-                if (__GUT_IS_OPEN_FD(fd)) {
-                    flags = RETRY_EINTR(::fcntl(fd, F_GETFD));
-                    if ((flags == -1) || RETRY_EINTR(::fcntl(fd, F_SETFD, FD_CLOEXEC | flags))) {
-                        close(fd);
-                    }
-                }
-                return fd;
-            } else {
-                return fd;
-            }
-            break;
-        case EPERM:
-            if (flags & O_NOATIME) {
-                flags &= ~O_NOATIME;
-                return open_at(dir_fd, name, flags);
-            } else {
-                return fd;
-            }
-            break;
-        default:
-            return fd;
-        }
-    }
-    return fd;
-}
-
-bool open_dir(int& fd, const int parent_fd, const char* p_path)
-{
-    if(__GUT_IS_OPEN_FD(fd)) {
-        return true;
-    }
-    while (! __GUT_IS_OPEN_FD(fd)) {
-        constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
-        fd = open_at(parent_fd, p_path, openat_flags);
-        if (__GUT_IS_OPEN_FD(fd)) {
-            break;
-        }
-
-        assert(errno != EINTR);
-        if (errno != ENOENT) {
-            return false;
-        }
-        constexpr int mkdirat_flags = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; // 0755
-        const int rc = RETRY_EINTR(::mkdirat(parent_fd, p_path, mkdirat_flags));
-        if ((rc != 0) && (errno != EEXIST)) {
-            return false;
-        }
-    }
-    assert(__GUT_IS_OPEN_FD(fd));
-    return true;
-}
-
-} // <anonymous> namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // class tmp_dir
@@ -120,14 +56,6 @@ tmp_dir::tmp_dir(const ptr& p_parent)
 {
     assert(__GUT_IS_OPEN_FD(m_parent_fd));
     m_name[0] = '\0';
-}
-
-tmp_dir::tmp_dir(const char* p_name, int parent_fd)
-    : m_parent_fd(parent_fd)
-{
-    assert(::strlen(p_name) == gk_name_length);
-    ::memcpy(m_name, p_name, gk_name_length);
-    m_name[gk_name_length] = '\0';
 }
 
 tmp_dir::tmp_dir(const std::string_view& name, int parent_fd)
@@ -179,7 +107,7 @@ bool tmp_dir::create()
         }
 
         constexpr int openat_flags = O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOATIME | O_NOCTTY;
-        m_fd = open_at(m_parent_fd, m_name, openat_flags);
+        m_fd = directory::openat(m_parent_fd, m_name, openat_flags);
         if (__GUT_IS_OPEN_FD(m_fd)) {
             return true;
         }
@@ -213,7 +141,7 @@ bool tmp_dir::open()
 {
     assert(m_name[0] != '\0');
     assert(__GUT_IS_OPEN_FD(m_parent_fd));
-    return open_dir(m_fd, m_parent_fd, m_name);
+    return directory::open_dir(m_fd, m_parent_fd, m_name);
 }
 
 bool tmp_dir::remove()
@@ -246,44 +174,6 @@ size_t tmp_dir::size() const
 }
 
 void tmp_dir::unlock() const
-{
-    __GUT_UNLOCK_FD(m_fd);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// class directory
-
-directory::directory(std::string dir_path)
-    : m_path(std::filesystem::absolute(dir_path).string())
-    , m_fd(-1)
-{}
-
-directory::directory(std::string_view dir_path)
-    : m_path(std::filesystem::absolute(dir_path).string())
-    , m_fd(-1)
-{}
-
-directory::~directory()
-{
-    __GUT_CLOSE_FD(m_fd);
-}
-
-bool directory::is_open() const
-{
-    return __GUT_IS_OPEN_FD(m_fd);
-}
-
-bool directory::lock(bool is_exclusive) const
-{
-    return __GUT_LOCK_FD(m_fd, is_exclusive);
-}
-
-bool directory::open()
-{
-    return open_dir(m_fd, AT_FDCWD, m_path.c_str());
-}
-
-void directory::unlock() const
 {
     __GUT_UNLOCK_FD(m_fd);
 }

@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_QUEUE_H_
-#define _LIBS_GUT_QUEUE_H_
+#ifndef _LIBS_GUT_STAGE_QUEUE_H_
+#define _LIBS_GUT_STAGE_QUEUE_H_
 
 #include <functional>
 #include <memory>
@@ -133,4 +133,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_QUEUE_H_ */
+#endif /* _LIBS_GUT_STAGE_QUEUE_H_ */
