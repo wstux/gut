@@ -30,6 +30,7 @@
 #include <string>
 #include <string_view>
 
+#include "gut/logging_handler.h"
 #include "gut/stage_item.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
@@ -92,31 +93,39 @@ public:
     /// \param  path - the path to the queue's root directory.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when
     ///     an application shuts down.
+    /// \param  p_logger - a pointer to a logging handler.
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
-    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                            logging_handler::ptr p_logger = logging_handler::ptr());
 
     /// \brief  Creating a queue associated with a destination output queue.
     /// \param  path - the path to the queue's root directory.
     /// \param  out_path - the path to the root directory of the target recipient queue.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when
     ///     an application shuts down.
+    /// \param  p_logger - a pointer to a logging handler.
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
     ///     Instead of a local output directory, it uses the input directory of a
     ///     queue located at the provided path. Calling item::commit() on items in
     ///     this queue will deliver them directly into the input pool of the target queue.
-    static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::string_view& out_path,
+                            const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger = logging_handler::ptr());
 
 private:
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&);
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&,
+                                             ::wstux::gut::logging_handler::ptr&&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&,
+                                             const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
 
-    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                logging_handler::ptr&& p_logger);
 
-    stage_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
+    stage_queue(const std::string_view& path, const std::string_view& out_path,
+                const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
 
     bool open();
 
@@ -129,6 +138,8 @@ private:
     details::fq::queue m_input;
     details::fq::sink_queue m_proc;
     details::fq::sink_queue m_output;
+
+    logging_handler::ptr m_p_logger;
 };
 
 } // namespace gut
