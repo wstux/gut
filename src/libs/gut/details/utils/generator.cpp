@@ -23,15 +23,13 @@
  */
 
 #include <time.h>
-#include <unistd.h>
-#include <sys/file.h>
 
 #include <cassert>
-#include <cstdint>
 #include <atomic>
 #include <string_view>
 
-#include "gut/details/generator.h"
+#include "gut/details/fwd.h"
+#include "gut/details/utils/generator.h"
 
 namespace wstux {
 namespace gut {
@@ -91,8 +89,8 @@ uint64_t time_token()
     // Custom time epoch start: 2026-01-01 00:00:00 UTC in microseconds.
     constexpr uint64_t k_epoch_mcs = 1767225600000000ull;
 
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
+    struct ::timespec ts;
+    ::clock_gettime(CLOCK_REALTIME, &ts);
 
     // Convert seconds and nanoseconds to total microseconds
     uint64_t now_micros = (static_cast<uint64_t>(ts.tv_sec) * 1000000ull) + (ts.tv_nsec / 1000L);

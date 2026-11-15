@@ -28,6 +28,7 @@
 #include <functional>
 #include <mutex>
 
+#include "gut/details/directory.h"
 #include "gut/details/fwd.h"
 
 namespace wstux {
@@ -38,7 +39,7 @@ namespace fq {
 class head final
 {
 public:
-    head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn);
+    head(const directory& nook_dir, const std::function<bool()>& is_stop_fn);
 
     tmp_dir_ptr_t get_active_dir(bool force_rotation = false);
 
@@ -46,7 +47,7 @@ private:
     tmp_dir_ptr_t rotate(bool force_rotation);
 
 private:
-    const dir_t& m_root_dir;
+    const directory& m_nook_dir;
     const std::function<bool()> m_is_stop_fn;
 
     std::mutex m_dir_mutex;

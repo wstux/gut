@@ -22,15 +22,15 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_QUEUE_H_
-#define _LIBS_GUT_QUEUE_H_
+#ifndef _LIBS_GUT_STAGE_QUEUE_H_
+#define _LIBS_GUT_STAGE_QUEUE_H_
 
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "gut/item.h"
+#include "gut/stage_item.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -62,10 +62,11 @@ namespace gut {
  *           the target queue);
  *         - `rollback` returns an item from `proc` back to the `input` of the current queue.
  */
-class queue final
+class stage_queue final
 {
 public:
-    using ptr = std::unique_ptr<queue>;
+    using item = stage_item;
+    using ptr = std::unique_ptr<stage_queue>;
 
 public:
     /// \brief  Creates a new, empty item in the queue's working directory (`proc`).
@@ -110,14 +111,12 @@ public:
     static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
 private:
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::function<bool()>&);
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
 
-    queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
 
-    queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
-
-    details::fq::queue& input_queue() { return m_input; }
+    stage_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
     bool open();
 
@@ -135,4 +134,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_QUEUE_H_ */
+#endif /* _LIBS_GUT_STAGE_QUEUE_H_ */

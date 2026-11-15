@@ -29,6 +29,7 @@
 #include <set>
 #include <string>
 
+#include "gut/details/directory.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/notifier.h"
 
@@ -45,7 +46,7 @@ public:
     using cleaner_ptr_t = std::shared_ptr<cleaner>;
 
 public:
-    tail(const dir_t& root_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
+    tail(const directory& nook_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
 
     ~tail();
 
@@ -65,7 +66,7 @@ private:
     using primary_tier_ptr_t = std::shared_ptr<primary_tier>;
 
 private:
-    const dir_t& m_root_dir;
+    const directory& m_nook_dir;
     const std::function<bool()> m_is_stop_fn;
 
     cleaner_ptr_t m_p_cleaner;

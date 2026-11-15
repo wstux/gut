@@ -29,9 +29,9 @@
 
 #include <type_traits>
 
-#include "gut/details/dir.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/filequeue/tail.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {
@@ -45,7 +45,7 @@ public:
     using ptr = std::unique_ptr<active_tier>;
 
 public:
-    active_tier(const dir_t& root_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+    active_tier(const directory& nook_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
         : m_p_dir(p_dir)
         , m_p_notifier(p_notifier)
     {
@@ -53,7 +53,7 @@ public:
 
         char path[PATH_MAX];
         [[maybe_unused]] const int len = ::snprintf(path, sizeof(path), "%.*s/%.*s/%.*s",
-            static_cast<int>(root_dir.path().size()), root_dir.path().data(),
+            static_cast<int>(nook_dir.path().size()), nook_dir.path().data(),
             static_cast<int>(p_parent_dir->name().size()), p_parent_dir->name().data(),
             static_cast<int>(m_p_dir->name().size()), m_p_dir->name().data());
         assert(len > 0 && len < static_cast<int>(sizeof(path)));
@@ -165,7 +165,7 @@ bool reload_dir(const TParent& parent, std::set<tmp_dir::ptr>& pool, const std::
 class tail::primary_tier final
 {
 public:
-    primary_tier(const dir_t& parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
+    primary_tier(const directory& parent_dir, const tmp_dir::ptr& p_dir, notifier* p_notifier)
         : m_parent_dir(parent_dir)
         , m_p_dir(p_dir)
         , m_p_notifier(p_notifier)
@@ -265,7 +265,7 @@ private:
     }
 
 private:
-    const dir_t& m_parent_dir;
+    const directory& m_parent_dir;
     tmp_dir::ptr m_p_dir;
     notifier* m_p_notifier;
     int m_wd = -1;
@@ -276,8 +276,8 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class tail
 
-tail::tail(const dir_t& root_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
-    : m_root_dir(root_dir)
+tail::tail(const directory& nook_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
+    : m_nook_dir(nook_dir)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(p_cleaner)
 {
@@ -294,8 +294,8 @@ tail::~tail()
 
 bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
 {
-    assert(m_root_dir.is_open());
-    if (! m_root_dir.is_open()) {
+    assert(m_nook_dir.is_open());
+    if (! m_nook_dir.is_open()) {
         return false;
     }
 
@@ -307,9 +307,9 @@ bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
             std::string primary_name = *m_primary_pool.begin();
             m_primary_pool.erase(m_primary_pool.begin());
 
-            tmp_dir::ptr p_primary_dir = std::make_shared<tmp_dir>(primary_name, m_root_dir.fd());
+            tmp_dir::ptr p_primary_dir = std::make_shared<tmp_dir>(primary_name, m_nook_dir.fd());
             if (p_primary_dir->open() && p_primary_dir->lock(false)) {
-                m_primary_tiers.emplace(primary_name, std::make_shared<primary_tier>(m_root_dir, p_primary_dir, &m_notifier));
+                m_primary_tiers.emplace(primary_name, std::make_shared<primary_tier>(m_nook_dir, p_primary_dir, &m_notifier));
             }
         }
 
@@ -353,7 +353,7 @@ bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
 bool tail::reload()
 {
     dir_reader scanner;
-    if (scanner.opendir(m_root_dir.fd())) {
+    if (scanner.opendir(m_nook_dir.fd())) {
         while (struct ::dirent* p_ent = scanner.readdir()) {
             if (p_ent->d_type == DT_DIR) {
                 std::string_view name = p_ent->d_name;
@@ -370,7 +370,7 @@ bool tail::reload()
 
 bool tail::start()
 {
-    m_root_wd = m_notifier.add_watch(m_root_dir.path(), IN_CREATE | IN_MOVED_TO,
+    m_root_wd = m_notifier.add_watch(m_nook_dir.path(), IN_CREATE | IN_MOVED_TO,
         [this](uint32_t mask, const std::string_view& name) {
             if (name.empty()) {
                 m_primary_pool.clear();

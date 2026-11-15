@@ -31,9 +31,10 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/details/dir.h"
+#include "gut/details/directory.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace {
 
@@ -49,7 +50,7 @@ public:
         m_root_path = make_tmp_dir("ut_gut_cleaner");
         ASSERT_TRUE(std::filesystem::create_directory(m_root_path)) << "Failed to create root directory '" << m_root_path << "'";
 
-        m_p_work_dir = std::make_shared<details::dir_t>(m_root_path.string());
+        m_p_work_dir = std::make_shared<details::directory>(m_root_path.string());
         ASSERT_TRUE(m_p_work_dir->open());
     }
 
@@ -127,7 +128,7 @@ private:
 
 private:
     std::filesystem::path m_root_path;
-    std::shared_ptr<details::dir_t> m_p_work_dir;
+    std::shared_ptr<details::directory> m_p_work_dir;
 };
 
 } // <anonymous> namespace

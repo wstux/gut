@@ -24,26 +24,25 @@
 
 #include <cassert>
 
-#include "gut/item.h"
-#include "gut/queue.h"
+#include "gut/stage_item.h"
+#include "gut/stage_queue.h"
 
 namespace wstux {
 namespace gut {
 
-item::item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn)
-    : m_is_stop_fn(is_stop_fn)
-    , m_p_commit_queue(p_commit_queue)
-    , m_p_rollback_queue(p_rollback_queue)
+stage_item::stage_item(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue)
+    : m_commit_queue(commit_queue)
+    , m_rollback_queue(rollback_queue)
 {}
 
-bool item::commit()
+bool stage_item::commit()
 {
     assert(m_entry.is_alive());
-    assert(m_p_commit_queue);
+    //assert(m_p_commit_queue);
     //assert(! m_p_current_queue);
     assert(! m_is_moved);
 
-    const bool rc = m_p_commit_queue->push_item(m_entry);
+    const bool rc = m_commit_queue.push_item(m_entry);
     if (rc) {
         //m_p_current_queue = m_p_commit_queue;
         m_is_moved = true;
@@ -54,17 +53,17 @@ bool item::commit()
     return false;
 }
 
-bool item::is_alive() const
+bool stage_item::is_alive() const
 {
     return m_entry.is_alive();
 }
 
-bool item::is_mapped() const
+bool stage_item::is_mapped() const
 {
     return m_entry.is_mapped();
 }
 
-const void* item::map()
+const void* stage_item::map()
 {
     const off64_t file_size = size();
     if (file_size > 0) {
@@ -73,20 +72,20 @@ const void* item::map()
     return nullptr;
 }
 
-const void* item::map(const off64_t offset, const size_t size)
+const void* stage_item::map(const off64_t offset, const size_t size)
 {
-    if (size > 0 && ((off64_t)(offset + size) > 0) && (item::size() >= (off64_t)(offset + size))) {
+    if (size > 0 && ((off64_t)(offset + size) > 0) && (stage_item::size() >= (off64_t)(offset + size))) {
         return m_entry.map(offset, size);
     }
     return nullptr;
 }
 
-ssize_t item::read(const off64_t offset, char* p_buffer, const size_t size)
+ssize_t stage_item::read(const off64_t offset, char* p_buffer, const size_t size)
 {
     return m_entry.read(offset, p_buffer, size);
 }
 
-bool item::remove()
+bool stage_item::remove()
 {
     if (is_mapped()) {
         return false;
@@ -94,14 +93,14 @@ bool item::remove()
     return m_entry.remove();
 }
 
-bool item::rollback()
+bool stage_item::rollback()
 {
     assert(m_entry.is_alive());
-    assert(m_p_rollback_queue);
+    //assert(m_p_rollback_queue);
     //assert(! m_p_current_queue);
     assert(! m_is_moved);
 
-    const bool rc = m_p_rollback_queue->push_item(m_entry);
+    const bool rc = m_rollback_queue.push_item(m_entry);
     if (rc) {
         //m_p_current_queue = m_p_rollback_queue;
         m_is_moved = true;
@@ -112,22 +111,22 @@ bool item::rollback()
     return false;
 }
 
-ssize_t item::size() const
+ssize_t stage_item::size() const
 {
     return m_entry.size();
 }
 
-bool item::truncate(const size_t size)
+bool stage_item::truncate(const size_t size)
 {
     return m_entry.truncate(size);
 }
 
-void item::unmap()
+void stage_item::unmap()
 {
     m_entry.unmap();
 }
 
-ssize_t item::write(const char* p_data, const ssize_t size, const off64_t offset)
+ssize_t stage_item::write(const char* p_data, const ssize_t size, const off64_t offset)
 {
     return m_entry.write(p_data, size, offset);
 }

@@ -43,6 +43,12 @@ public:
 
     ~entry();
 
+    entry(const entry&) = delete;
+    entry(entry&&) = delete;
+
+    entry& operator=(const entry&) = delete;
+    entry& operator=(entry&&) = delete;
+
     void close();
 
     bool create(const tmp_dir_ptr_t& p_dir, const std::string_view& name);
