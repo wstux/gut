@@ -24,18 +24,18 @@
 
 #include <cassert>
 
-#include "gut/stage_item.h"
-#include "gut/stage_queue.h"
+#include "gut/stageitem.h"
+#include "gut/details/filequeue/queue.h"
 
 namespace wstux {
 namespace gut {
 
-stage_item::stage_item(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue)
+stageitem::stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue)
     : m_commit_queue(commit_queue)
     , m_rollback_queue(rollback_queue)
 {}
 
-bool stage_item::commit()
+bool stageitem::commit()
 {
     assert(m_entry.is_alive());
     //assert(m_p_commit_queue);
@@ -53,17 +53,17 @@ bool stage_item::commit()
     return false;
 }
 
-bool stage_item::is_alive() const
+bool stageitem::is_alive() const
 {
     return m_entry.is_alive();
 }
 
-bool stage_item::is_mapped() const
+bool stageitem::is_mapped() const
 {
     return m_entry.is_mapped();
 }
 
-const void* stage_item::map()
+const void* stageitem::map()
 {
     const off64_t file_size = size();
     if (file_size > 0) {
@@ -72,20 +72,20 @@ const void* stage_item::map()
     return nullptr;
 }
 
-const void* stage_item::map(const off64_t offset, const size_t size)
+const void* stageitem::map(const off64_t offset, const size_t size)
 {
-    if (size > 0 && ((off64_t)(offset + size) > 0) && (stage_item::size() >= (off64_t)(offset + size))) {
+    if (size > 0 && ((off64_t)(offset + size) > 0) && (stageitem::size() >= (off64_t)(offset + size))) {
         return m_entry.map(offset, size);
     }
     return nullptr;
 }
 
-ssize_t stage_item::read(const off64_t offset, char* p_buffer, const size_t size)
+ssize_t stageitem::read(const off64_t offset, char* p_buffer, const size_t size)
 {
     return m_entry.read(offset, p_buffer, size);
 }
 
-bool stage_item::remove()
+bool stageitem::remove()
 {
     if (is_mapped()) {
         return false;
@@ -93,7 +93,7 @@ bool stage_item::remove()
     return m_entry.remove();
 }
 
-bool stage_item::rollback()
+bool stageitem::rollback()
 {
     assert(m_entry.is_alive());
     //assert(m_p_rollback_queue);
@@ -111,22 +111,22 @@ bool stage_item::rollback()
     return false;
 }
 
-ssize_t stage_item::size() const
+ssize_t stageitem::size() const
 {
     return m_entry.size();
 }
 
-bool stage_item::truncate(const size_t size)
+bool stageitem::truncate(const size_t size)
 {
     return m_entry.truncate(size);
 }
 
-void stage_item::unmap()
+void stageitem::unmap()
 {
     m_entry.unmap();
 }
 
-ssize_t stage_item::write(const char* p_data, const ssize_t size, const off64_t offset)
+ssize_t stageitem::write(const char* p_data, const ssize_t size, const off64_t offset)
 {
     return m_entry.write(p_data, size, offset);
 }

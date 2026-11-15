@@ -25,7 +25,7 @@
 #include <cassert>
 #include <filesystem>
 
-#include "gut/stage_queue.h"
+#include "gut/stagequeue.h"
 #include "gut/details/logging.h"
 #include "gut/details/filequeue/cleaner.h"
 
@@ -63,7 +63,7 @@ std::string make_queue_path(const std::string_view& root_path, const std::string
 
 } // <anonymous> namespace
 
-stage_queue::stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
+stagequeue::stagequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
@@ -75,8 +75,8 @@ stage_queue::stage_queue(const std::string_view& path, const std::function<bool(
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
-stage_queue::stage_queue(const std::string_view& path, const std::string_view& out_path,
-                         const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
+stagequeue::stagequeue(const std::string_view& path, const std::string_view& out_path,
+                       const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
@@ -88,7 +88,7 @@ stage_queue::stage_queue(const std::string_view& path, const std::string_view& o
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
-stage_queue::item::ptr stage_queue::create()
+stagequeue::item::ptr stagequeue::create()
 {
     item::ptr p_item = std::make_unique<item>(m_output, m_input);
 
@@ -101,7 +101,7 @@ stage_queue::item::ptr stage_queue::create()
     return p_item;
 }
 
-stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
+stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
 {
     if (path.empty()) {
         GUT_LOG_ERROR(p_logger, "Stage queue directory is empty");
@@ -111,7 +111,7 @@ stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const s
     if (! create_queue_dir(path, p_logger)) {
         return nullptr;
     }
-    stage_queue::ptr p_queue = std::make_unique<stage_queue>(path, is_stop_fn, std::move(p_logger));
+    stagequeue::ptr p_queue = std::make_unique<stagequeue>(path, is_stop_fn, std::move(p_logger));
     if (! p_queue->open()) {
         GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open stage queue directory %s", p_queue->m_path.c_str());
         return nullptr;
@@ -120,8 +120,8 @@ stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const s
     return p_queue;
 }
 
-stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const std::string_view& out_path,
-                                           const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
+stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std::string_view& out_path,
+                                         const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
 {
     namespace fs = std::filesystem;
 
@@ -145,7 +145,7 @@ stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const s
         return nullptr;
     }
 
-    stage_queue::ptr p_queue = std::make_unique<stage_queue>(path, out_path, is_stop_fn, std::move(p_logger));
+    stagequeue::ptr p_queue = std::make_unique<stagequeue>(path, out_path, is_stop_fn, std::move(p_logger));
     if (! p_queue->open()) {
         GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open stage queue directory %s", p_queue->m_path.c_str());
         return nullptr;
@@ -154,7 +154,7 @@ stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const s
     return p_queue;
 }
 
-bool stage_queue::open()
+bool stagequeue::open()
 {
     if (! m_input.open()) {
         GUT_LOG_ERROR(m_p_logger, "Failed to open input directory");
@@ -171,7 +171,7 @@ bool stage_queue::open()
     return true;
 }
 
-stage_queue::item::ptr stage_queue::pop(size_t wait_ms)
+stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
 {
     item::ptr p_item = std::make_unique<item>(m_output, m_input);
 

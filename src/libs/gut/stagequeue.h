@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_STAGE_QUEUE_H_
-#define _LIBS_GUT_STAGE_QUEUE_H_
+#ifndef _LIBS_GUT_STAGEQUEUE_H_
+#define _LIBS_GUT_STAGEQUEUE_H_
 
 #include <functional>
 #include <memory>
@@ -31,7 +31,7 @@
 #include <string_view>
 
 #include "gut/logging_handler.h"
-#include "gut/stage_item.h"
+#include "gut/stageitem.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -63,11 +63,11 @@ namespace gut {
  *           the target queue);
  *         - `rollback` returns an item from `proc` back to the `input` of the current queue.
  */
-class stage_queue final
+class stagequeue final
 {
 public:
-    using item = stage_item;
-    using ptr = std::unique_ptr<stage_queue>;
+    using item = stageitem;
+    using ptr = std::unique_ptr<stagequeue>;
 
 public:
     /// \brief  Creates a new, empty item in the queue's working directory (`proc`).
@@ -116,16 +116,16 @@ public:
                             const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger = logging_handler::ptr());
 
 private:
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&,
-                                             ::wstux::gut::logging_handler::ptr&&);
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&,
-                                             const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
+    friend ptr std::make_unique<stagequeue>(const std::string_view&,
+        const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
+    friend ptr std::make_unique<stagequeue>(const std::string_view&,
+        const std::string_view&, const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
 
-    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
-                logging_handler::ptr&& p_logger);
+    stagequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+               logging_handler::ptr&& p_logger);
 
-    stage_queue(const std::string_view& path, const std::string_view& out_path,
-                const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
+    stagequeue(const std::string_view& path, const std::string_view& out_path,
+               const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
 
     bool open();
 
@@ -145,4 +145,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_STAGE_QUEUE_H_ */
+#endif /* _LIBS_GUT_STAGEQUEUE_H_ */
