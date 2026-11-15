@@ -31,6 +31,7 @@
 #include <string_view>
 
 #include "gut/fileitem.h"
+#include "gut/logging_handler.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -65,13 +66,15 @@ public:
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
-    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                            logging_handler::ptr p_logger = logging_handler::ptr());
 
 private:
     friend filequeue;
-    friend ptr std::make_unique<sink_filequeue>(const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<sink_filequeue>(const std::string_view&, const std::function<bool()>&,
+        ::wstux::gut::logging_handler::ptr&&);
 
-    sink_filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    sink_filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
 
     bool open();
 
@@ -80,6 +83,8 @@ private:
     const std::function<bool()> m_is_stop_fn;
 
     details::fq::sink_queue m_queue;
+
+    logging_handler::ptr m_p_logger;
 };
 
 class filequeue final
@@ -132,12 +137,14 @@ public:
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
-    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                            logging_handler::ptr p_logger = logging_handler::ptr());
 
 private:
-    friend ptr std::make_unique<filequeue>(const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<filequeue>(const std::string_view&, const std::function<bool()>&,
+        ::wstux::gut::logging_handler::ptr&&);
 
-    filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
 
     bool open();
 
@@ -148,6 +155,8 @@ private:
     details::fq::cleaner_ptr_t m_p_cleaner;
 
     details::fq::queue m_queue;
+
+    logging_handler::ptr m_p_logger;
 };
 
 } // namespace gut

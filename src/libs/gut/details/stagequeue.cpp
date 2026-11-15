@@ -104,7 +104,7 @@ stagequeue::item::ptr stagequeue::create()
 stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
 {
     if (path.empty()) {
-        GUT_LOG_ERROR(p_logger, "Stage queue directory is empty");
+        GUT_LOG_ERROR(p_logger, "Stage queue directory path is empty");
         return nullptr;
     }
 
@@ -116,7 +116,7 @@ stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std
         GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open stage queue directory %s", p_queue->m_path.c_str());
         return nullptr;
     }
-    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited stage queue int directory %s", p_queue->m_path.c_str());
+    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited stage queue in directory %s", p_queue->m_path.c_str());
     return p_queue;
 }
 
@@ -126,7 +126,7 @@ stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std
     namespace fs = std::filesystem;
 
     if (path.empty() || out_path.empty()) {
-        GUT_LOG_ERROR(p_logger, "Stage queue directory or output directory is empty");
+        GUT_LOG_ERROR(p_logger, "Stage queue directory path or output directory path is empty");
         return nullptr;
     }
 
@@ -150,7 +150,7 @@ stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std
         GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open stage queue directory %s", p_queue->m_path.c_str());
         return nullptr;
     }
-    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited stage queue int directory %s", p_queue->m_path.c_str());
+    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited stage queue in directory %s", p_queue->m_path.c_str());
     return p_queue;
 }
 

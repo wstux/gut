@@ -26,18 +26,42 @@
 #include <filesystem>
 
 #include "gut/filequeue.h"
+#include "gut/details/logging.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
 namespace gut {
+namespace {
+
+bool create_queue_dir(const std::filesystem::path& path, const logging_handler::ptr& p_logger)
+{
+    namespace fs = std::filesystem;
+
+    std::error_code error;
+    fs::create_directories(path, error);
+    if (error) {
+        GUT_LOG_ERROR(p_logger, "Failed to create filequeue directory %s", path.c_str());
+        return false;
+    }
+    fs::perms perms = fs::perms::owner_all | fs::perms::group_all | fs::perms::others_read;
+    fs::permissions(path, perms, error);
+    if (error) {
+        GUT_LOG_ERROR(p_logger, "Failed to set permissions for filequeue directory %s", path.c_str());
+        return false;
+    }
+    return true;
+}
+
+} // <anonymous> namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // class sink_filequeue
 
-sink_filequeue::sink_filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+sink_filequeue::sink_filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_queue(path, m_is_stop_fn)
+    , m_p_logger(std::move(p_logger))
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
@@ -55,36 +79,31 @@ sink_filequeue::item::ptr sink_filequeue::create()
     return p_item;
 }
 
-sink_filequeue::ptr sink_filequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+sink_filequeue::ptr sink_filequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                                                 logging_handler::ptr p_logger)
 {
-    namespace fs = std::filesystem;
-
     if (path.empty()) {
+        GUT_LOG_ERROR(p_logger, "Sink filequeue directory path is empty");
         return nullptr;
     }
 
-    std::error_code error;
-    fs::create_directories(path, error);
-    if (error) {
-        return nullptr;
-    }
-
-    fs::perms perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read;
-    fs::permissions(path, perms, error);
-    if (error) {
+    if (! create_queue_dir(path, p_logger)) {
         return nullptr;
     }
     //return std::make_unique<queue>(path, is_stop_fn);
-    sink_filequeue::ptr p_queue = std::make_unique<sink_filequeue>(path, is_stop_fn);
+    sink_filequeue::ptr p_queue = std::make_unique<sink_filequeue>(path, is_stop_fn, std::move(p_logger));
     if (! p_queue->open()) {
+        GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open sink filequeue directory %s", p_queue->m_path.c_str());
         return nullptr;
     }
+    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited sink filequeue in directory %s", p_queue->m_path.c_str());
     return p_queue;
 }
 
 bool sink_filequeue::open()
 {
     if (! m_queue.open()) {
+        GUT_LOG_ERROR(m_p_logger, "Failed to open queue directory");
         return false;
     }
     return true;
@@ -104,11 +123,12 @@ bool sink_filequeue::push(const item::ptr& p_item)
 ////////////////////////////////////////////////////////////////////////////////
 // class filequeue
 
-filequeue::filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+filequeue::filequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
     , m_queue(path, m_p_cleaner, m_is_stop_fn)
+    , m_p_logger(std::move(p_logger))
 {
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
@@ -126,36 +146,31 @@ filequeue::item::ptr filequeue::create()
     return p_item;
 }
 
-filequeue::ptr filequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+filequeue::ptr filequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                                       logging_handler::ptr p_logger)
 {
-    namespace fs = std::filesystem;
-
     if (path.empty()) {
+        GUT_LOG_ERROR(p_logger, "Filequeue directory path is empty");
         return nullptr;
     }
 
-    std::error_code error;
-    fs::create_directories(path, error);
-    if (error) {
-        return nullptr;
-    }
-
-    fs::perms perms = fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read;
-    fs::permissions(path, perms, error);
-    if (error) {
+    if (! create_queue_dir(path, p_logger)) {
         return nullptr;
     }
     //return std::make_unique<queue>(path, is_stop_fn);
-    filequeue::ptr p_queue = std::make_unique<filequeue>(path, is_stop_fn);
+    filequeue::ptr p_queue = std::make_unique<filequeue>(path, is_stop_fn, std::move(p_logger));
     if (! p_queue->open()) {
+        GUT_LOG_ERROR(p_queue->m_p_logger, "Failed to open filequeue directory %s", p_queue->m_path.c_str());
         return nullptr;
     }
+    GUT_LOG_DEBUG(p_queue->m_p_logger, "Inited filequeue in directory %s", p_queue->m_path.c_str());
     return p_queue;
 }
 
 bool filequeue::open()
 {
     if (! m_queue.open()) {
+        GUT_LOG_ERROR(m_p_logger, "Failed to open queue directory");
         return false;
     }
     return true;
