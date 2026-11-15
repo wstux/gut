@@ -77,8 +77,8 @@ bool is_acceptable_dir(const tmp_dir::ptr& p_dir)
 
 }
 
-head::head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn)
-    : m_root_dir(root_dir)
+head::head(const directory& nook_dir, const std::function<bool()>& is_stop_fn)
+    : m_nook_dir(nook_dir)
     , m_is_stop_fn(is_stop_fn)
 {
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
@@ -86,7 +86,7 @@ head::head(const dir_t& root_dir, const std::function<bool()>& is_stop_fn)
 
 tmp_dir::ptr head::get_active_dir(bool force_rotation)
 {
-    assert(m_root_dir.is_open());
+    assert(m_nook_dir.is_open());
 
     if (! force_rotation) {
         tmp_dir::ptr p_active_dir = std::atomic_load(&m_p_active_dir);
@@ -112,9 +112,9 @@ tmp_dir::ptr head::rotate(bool force_rotation)
     std::atomic_store(&m_p_active_dir, tmp_dir::ptr());
     tmp_dir::ptr p_active_dir;
     for (size_t i = 0; ! is_acceptable_dir(p_active_dir) && i < 100 && ! m_is_stop_fn(); ++i) {
-        assert(m_root_dir.is_open());
+        assert(m_nook_dir.is_open());
 
-        if (is_acceptable_dir(m_p_primary_dir) || create_tmp_dir(m_root_dir.fd(), m_p_primary_dir)) {
+        if (is_acceptable_dir(m_p_primary_dir) || create_tmp_dir(m_nook_dir.fd(), m_p_primary_dir)) {
             if (create_tmp_dir(m_p_primary_dir, m_p_active_dir)) {
                 break;
             }

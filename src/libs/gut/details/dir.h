@@ -85,14 +85,14 @@ private:
     char m_name[gk_name_buffer_size];
 };
 
-class dir_t final
+class directory final
 {
 public:
-    explicit dir_t(std::string dir_path);
+    explicit directory(std::string dir_path);
 
-    explicit dir_t(std::string_view dir_path);
+    explicit directory(std::string_view dir_path);
 
-    ~dir_t();
+    ~directory();
 
     int fd() const { return m_fd; }
 

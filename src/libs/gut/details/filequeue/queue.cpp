@@ -58,14 +58,14 @@ size_t monotime()
     return static_cast<size_t>(::time(nullptr));
 }
 
-bool open_queue(dir_t& root_dir)
+bool open_queue(directory& nook_dir)
 {
-    assert(! root_dir.is_open());
+    assert(! nook_dir.is_open());
 
-    if (! root_dir.open()) {
+    if (! nook_dir.open()) {
         return false;
     }
-    if (! root_dir.lock(false)) {
+    if (! nook_dir.lock(false)) {
         return false;
     }
     return true;
@@ -93,15 +93,15 @@ bool push_queue_item(entry& e, head& queue_head)
 ////////////////////////////////////////////////////////////////////////////////
 // class sink_queue
 
-sink_queue::sink_queue(const std::string_view& root_dir, const std::function<bool()>& is_stop_fn)
-    : m_root_dir(root_dir)
-    , m_queue_head(m_root_dir, is_stop_fn)
+sink_queue::sink_queue(const std::string_view& nook_dir, const std::function<bool()>& is_stop_fn)
+    : m_nook_dir(nook_dir)
+    , m_queue_head(m_nook_dir, is_stop_fn)
 {}
 
 sink_queue::~sink_queue()
 {
-    if (m_root_dir.is_open()) {
-        m_root_dir.unlock();
+    if (m_nook_dir.is_open()) {
+        m_nook_dir.unlock();
     }
 }
 
@@ -112,7 +112,7 @@ bool sink_queue::create_item(entry& e, const std::string_view& name)
 
 bool sink_queue::open()
 {
-    return open_queue(m_root_dir);
+    return open_queue(m_nook_dir);
 }
 
 bool sink_queue::push_item(entry& e)
@@ -123,20 +123,20 @@ bool sink_queue::push_item(entry& e)
 ////////////////////////////////////////////////////////////////////////////////
 // class queue
 
-queue::queue(const std::string_view& root_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
+queue::queue(const std::string_view& nook_dir, const cleaner::ptr& p_cleaner, const std::function<bool()>& is_stop_fn)
     : m_is_stop_fn(is_stop_fn)
-    , m_root_dir(root_dir)
+    , m_nook_dir(nook_dir)
     , m_p_cleaner(p_cleaner)
-    , m_queue_head(m_root_dir, m_is_stop_fn)
-    , m_queue_tail(m_root_dir, m_p_cleaner, m_is_stop_fn)
+    , m_queue_head(m_nook_dir, m_is_stop_fn)
+    , m_queue_tail(m_nook_dir, m_p_cleaner, m_is_stop_fn)
 {
     static_assert(std::is_same<cleaner_ptr_t, cleaner::ptr>::value);
 }
 
 queue::~queue()
 {
-    if (m_root_dir.is_open()) {
-        m_root_dir.unlock();
+    if (m_nook_dir.is_open()) {
+        m_nook_dir.unlock();
     }
 }
 
@@ -147,9 +147,9 @@ bool queue::create_item(entry& e, const std::string_view& name)
 
 bool queue::open()
 {
-    assert(! m_root_dir.is_open());
+    assert(! m_nook_dir.is_open());
 
-    if (! open_queue(m_root_dir)) {
+    if (! open_queue(m_nook_dir)) {
         return false;
     }
     if (! m_queue_tail.start()) {

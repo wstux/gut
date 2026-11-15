@@ -41,7 +41,7 @@ namespace fq {
 class sink_queue final
 {
 public:
-    sink_queue(const std::string_view& root_dir, const std::function<bool()>& is_stop_fn);
+    sink_queue(const std::string_view& nook_dir, const std::function<bool()>& is_stop_fn);
 
     ~sink_queue();
 
@@ -52,7 +52,7 @@ public:
     bool push_item(entry& e);
 
 private:
-    dir_t m_root_dir;
+    directory m_nook_dir;
 
     head m_queue_head;
 };
@@ -60,7 +60,7 @@ private:
 class queue final
 {
 public:
-    queue(const std::string_view& root_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
+    queue(const std::string_view& nook_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
 
     ~queue();
 
@@ -76,7 +76,7 @@ public:
 private:
     const std::function<bool()> m_is_stop_fn;
 
-    dir_t m_root_dir;
+    directory m_nook_dir;
 
     cleaner_ptr_t m_p_cleaner;
     std::atomic_size_t m_cleaner_ts = 0;

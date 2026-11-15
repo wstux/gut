@@ -251,39 +251,39 @@ void tmp_dir::unlock() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// class dir_t
+// class directory
 
-dir_t::dir_t(std::string dir_path)
+directory::directory(std::string dir_path)
     : m_path(std::filesystem::absolute(dir_path).string())
     , m_fd(-1)
 {}
 
-dir_t::dir_t(std::string_view dir_path)
+directory::directory(std::string_view dir_path)
     : m_path(std::filesystem::absolute(dir_path).string())
     , m_fd(-1)
 {}
 
-dir_t::~dir_t()
+directory::~directory()
 {
     __GUT_CLOSE_FD(m_fd);
 }
 
-bool dir_t::is_open() const
+bool directory::is_open() const
 {
     return __GUT_IS_OPEN_FD(m_fd);
 }
 
-bool dir_t::lock(bool is_exclusive) const
+bool directory::lock(bool is_exclusive) const
 {
     return __GUT_LOCK_FD(m_fd, is_exclusive);
 }
 
-bool dir_t::open()
+bool directory::open()
 {
     return open_dir(m_fd, AT_FDCWD, m_path.c_str());
 }
 
-void dir_t::unlock() const
+void directory::unlock() const
 {
     __GUT_UNLOCK_FD(m_fd);
 }

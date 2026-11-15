@@ -59,7 +59,7 @@ public:
         m_work_path = m_root_path / "queue";
         ASSERT_TRUE(std::filesystem::create_directory(m_work_path)) << "Failed to create work directory '" << m_work_path << "'";
 
-        m_p_work_dir = std::make_shared<details::dir_t>(m_work_path.string());
+        m_p_work_dir = std::make_shared<details::directory>(m_work_path.string());
         ASSERT_TRUE(m_p_work_dir->open());
         m_p_cleaner = std::make_shared<details::fq::cleaner>([]() -> bool { return false; });
     }
@@ -119,7 +119,7 @@ public:
         std::filesystem::remove(m_work_path / primary_dir / active_dir / filename);
     }
 
-    const details::dir_t& work_dir() const { return *m_p_work_dir; }
+    const details::directory& work_dir() const { return *m_p_work_dir; }
 
 private:
     static std::filesystem::path make_tmp_dir(const std::string& prefix)
@@ -138,7 +138,7 @@ private:
     std::filesystem::path m_root_path;
     std::filesystem::path m_tmp_path;
     std::filesystem::path m_work_path;
-    std::shared_ptr<details::dir_t> m_p_work_dir;
+    std::shared_ptr<details::directory> m_p_work_dir;
     details::fq::cleaner::ptr m_p_cleaner;
 };
 
