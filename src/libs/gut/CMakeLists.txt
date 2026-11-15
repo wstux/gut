@@ -2,6 +2,8 @@ LibTarget(gut STATIC
     SOURCES
         details/directory.cpp
         details/entry.cpp
+        details/fileitem.cpp
+        details/filequeue.cpp
         details/stage_item.cpp
         details/stage_queue.cpp
         details/filequeue/cleaner.cpp

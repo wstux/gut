@@ -65,13 +65,14 @@ namespace gut {
 class stage_queue final
 {
 public:
+    using item = stage_item;
     using ptr = std::unique_ptr<stage_queue>;
 
 public:
     /// \brief  Creates a new, empty item in the queue's working directory (`proc`).
     /// \return a pointer to the created element, or nullptr in the event of a file
     ///     system error or if the stop flag is triggered.
-    stage_item::ptr create();
+    item::ptr create();
 
     /// \brief  Returns the root path of the current queue on the file system.
     /// \return Thre current queue root path.
@@ -85,7 +86,7 @@ public:
     /// \details    Atomically moves a file from input directory to the working directory
     ///     and acquires an exclusive lock on the file. If the incoming queue is empty,
     ///     the current thread blocks until a new file appears or a timeout occurs.
-    stage_item::ptr pop(size_t wait_ms);
+    item::ptr pop(size_t wait_ms);
 
     /// \brief  Creating a queue.
     /// \param  path - the path to the queue's root directory.

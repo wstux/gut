@@ -65,9 +65,9 @@ stage_queue::stage_queue(const std::string_view& path, const std::string_view& o
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
-stage_item::ptr stage_queue::create()
+stage_queue::item::ptr stage_queue::create()
 {
-    stage_item::ptr p_item = std::make_unique<stage_item>(&m_output, &m_input, m_is_stop_fn);
+    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
 
     if (! m_proc.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -167,9 +167,9 @@ bool stage_queue::open()
     return true;
 }
 
-stage_item::ptr stage_queue::pop(size_t wait_ms)
+stage_queue::item::ptr stage_queue::pop(size_t wait_ms)
 {
-    stage_item::ptr p_item = std::make_unique<stage_item>(&m_output, &m_input, m_is_stop_fn);
+    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
 
     if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
