@@ -34,7 +34,7 @@
 namespace wstux {
 namespace gut {
 
-class queue;
+class stage_queue;
 
 /**
  *  \brief  Transactional item of a file queue.
@@ -44,10 +44,10 @@ class queue;
  *  \warning    An item is not thread-safe. A single item object must be processed
  *      by only one thread at any given time.
  */
-class item final
+class stage_item final
 {
 public:
-    using ptr = std::unique_ptr<item>;
+    using ptr = std::unique_ptr<stage_item>;
 
 public:
     /// \brief  Commits the processing or creation of an element.
@@ -84,13 +84,13 @@ public:
     ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:
-    friend class queue;
+    friend class stage_queue;
     //friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::queue*&&,
     //    ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
-    friend std::unique_ptr<item> std::make_unique<item>(::wstux::gut::details::fq::sink_queue*&&,
+    friend ptr std::make_unique<stage_item>(::wstux::gut::details::fq::sink_queue*&&,
         ::wstux::gut::details::fq::queue*&&, const std::function<bool()>&);
 
-    item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn);
+    stage_item(details::fq::sink_queue* p_commit_queue, details::fq::queue* p_rollback_queue, const std::function<bool()>& is_stop_fn);
 
 private:
     const std::function<bool()> m_is_stop_fn;

@@ -30,7 +30,7 @@
 #include <string>
 #include <string_view>
 
-#include "gut/item.h"
+#include "gut/stage_item.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -62,16 +62,16 @@ namespace gut {
  *           the target queue);
  *         - `rollback` returns an item from `proc` back to the `input` of the current queue.
  */
-class queue final
+class stage_queue final
 {
 public:
-    using ptr = std::unique_ptr<queue>;
+    using ptr = std::unique_ptr<stage_queue>;
 
 public:
     /// \brief  Creates a new, empty item in the queue's working directory (`proc`).
     /// \return a pointer to the created element, or nullptr in the event of a file
     ///     system error or if the stop flag is triggered.
-    item::ptr create();
+    stage_item::ptr create();
 
     /// \brief  Returns the root path of the current queue on the file system.
     /// \return Thre current queue root path.
@@ -85,7 +85,7 @@ public:
     /// \details    Atomically moves a file from input directory to the working directory
     ///     and acquires an exclusive lock on the file. If the incoming queue is empty,
     ///     the current thread blocks until a new file appears or a timeout occurs.
-    item::ptr pop(size_t wait_ms);
+    stage_item::ptr pop(size_t wait_ms);
 
     /// \brief  Creating a queue.
     /// \param  path - the path to the queue's root directory.
@@ -110,14 +110,12 @@ public:
     static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
 private:
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::function<bool()>&);
-    friend std::unique_ptr<queue> std::make_unique<queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
 
-    queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
 
-    queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
-
-    details::fq::queue& input_queue() { return m_input; }
+    stage_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
 
     bool open();
 

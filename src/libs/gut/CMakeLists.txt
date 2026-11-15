@@ -3,8 +3,8 @@ LibTarget(gut STATIC
         details/dir.cpp
         details/entry.cpp
         details/generator.cpp
-        details/item.cpp
-        details/queue.cpp
+        details/stage_item.cpp
+        details/stage_queue.cpp
         details/filequeue/cleaner.cpp
         details/filequeue/head.cpp
         details/filequeue/notifier.cpp

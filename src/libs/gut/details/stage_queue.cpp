@@ -25,7 +25,7 @@
 #include <cassert>
 #include <filesystem>
 
-#include "gut/queue.h"
+#include "gut/stage_queue.h"
 #include "gut/details/filequeue/cleaner.h"
 
 namespace wstux {
@@ -43,7 +43,7 @@ std::string make_queue_path(const std::string_view& root_path, const std::string
 
 } // <anonymous> namespace
 
-queue::queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+stage_queue::stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
@@ -54,7 +54,7 @@ queue::queue(const std::string_view& path, const std::function<bool()>& is_stop_
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
-queue::queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn)
+stage_queue::stage_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn)
     : m_path(path)
     , m_is_stop_fn(is_stop_fn)
     , m_p_cleaner(std::make_shared<details::fq::cleaner>(m_is_stop_fn))
@@ -65,9 +65,9 @@ queue::queue(const std::string_view& path, const std::string_view& out_path, con
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
-item::ptr queue::create()
+stage_item::ptr stage_queue::create()
 {
-    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+    stage_item::ptr p_item = std::make_unique<stage_item>(&m_output, &m_input, m_is_stop_fn);
 
     if (! m_proc.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -78,7 +78,7 @@ item::ptr queue::create()
     return p_item;
 }
 
-queue::ptr queue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
+stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn)
 {
     namespace fs = std::filesystem;
 
@@ -98,14 +98,14 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::function
         return nullptr;
     }
     //return std::make_unique<queue>(path, is_stop_fn);
-    queue::ptr p_queue = std::make_unique<queue>(path, is_stop_fn);
+    stage_queue::ptr p_queue = std::make_unique<stage_queue>(path, is_stop_fn);
     if (! p_queue->open()) {
         return nullptr;
     }
     return p_queue;
 }
 
-queue::ptr queue::create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn)
+stage_queue::ptr stage_queue::create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn)
 {
     namespace fs = std::filesystem;
 
@@ -146,14 +146,14 @@ queue::ptr queue::create_queue(const std::string_view& path, const std::string_v
             return nullptr;
         }
     }
-    queue::ptr p_queue = std::make_unique<queue>(path, out_path, is_stop_fn);
+    stage_queue::ptr p_queue = std::make_unique<stage_queue>(path, out_path, is_stop_fn);
     if (! p_queue->open()) {
         return nullptr;
     }
     return p_queue;
 }
 
-bool queue::open()
+bool stage_queue::open()
 {
     if (! m_input.open()) {
         return false;
@@ -167,9 +167,9 @@ bool queue::open()
     return true;
 }
 
-item::ptr queue::pop(size_t wait_ms)
+stage_item::ptr stage_queue::pop(size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>(&m_output, &m_input, m_is_stop_fn);
+    stage_item::ptr p_item = std::make_unique<stage_item>(&m_output, &m_input, m_is_stop_fn);
 
     if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());

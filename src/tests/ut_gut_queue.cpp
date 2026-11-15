@@ -30,7 +30,7 @@
 
 #include <gtest/gtest.h>
 
-#include "gut/queue.h"
+#include "gut/stage_queue.h"
 
 namespace {
 
@@ -110,10 +110,10 @@ TEST_F(queue_fixture, create_item)
 {
     std::filesystem::path rqueue_dir = root_path() / "create_ritem";
     std::filesystem::path wqueue_dir = root_path() / "create_witem";
-    gut::queue::ptr rq = gut::queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
-    gut::queue::ptr wq = gut::queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
+    gut::stage_queue::ptr rq = gut::stage_queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
+    gut::stage_queue::ptr wq = gut::stage_queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
 
-    gut::item::ptr item1 = wq->create();
+    gut::stage_item::ptr item1 = wq->create();
     ASSERT_TRUE(item1);
     EXPECT_FALSE(wq->pop(0));
 
@@ -127,14 +127,14 @@ TEST_F(queue_fixture, rollback)
 {
     std::filesystem::path rqueue_dir = root_path() / "rollback_ritem";
     std::filesystem::path wqueue_dir = root_path() / "rollback_witem";
-    gut::queue::ptr rq = gut::queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
-    gut::queue::ptr wq = gut::queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
+    gut::stage_queue::ptr rq = gut::stage_queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
+    gut::stage_queue::ptr wq = gut::stage_queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
 
-    gut::item::ptr item = wq->create();
+    gut::stage_item::ptr item = wq->create();
     ASSERT_TRUE(item);
     EXPECT_TRUE(item->commit());
 
-    gut::item::ptr ritem = rq->pop(0);
+    gut::stage_item::ptr ritem = rq->pop(0);
     ASSERT_TRUE(ritem);
     EXPECT_FALSE(rq->pop(0));
     ASSERT_TRUE(ritem->rollback());
@@ -145,8 +145,8 @@ TEST_F(queue_fixture, create_item_multithreaded)
 {
     std::filesystem::path rqueue_dir = root_path() / "create_ritem_multithreaded";
     std::filesystem::path wqueue_dir = root_path() / "create_witem_multithreaded";
-    gut::queue::ptr rq = gut::queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
-    gut::queue::ptr wq = gut::queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
+    gut::stage_queue::ptr rq = gut::stage_queue::create_queue(rqueue_dir.string(), []() -> bool { return false; });
+    gut::stage_queue::ptr wq = gut::stage_queue::create_queue(wqueue_dir.string(), rq->path(), []() -> bool { return false; });
 
     std::atomic<size_t> total_written{0};
     std::atomic<size_t> total_read{0};
@@ -154,7 +154,7 @@ TEST_F(queue_fixture, create_item_multithreaded)
 
     const std::function<void()> read_fn = [&rq, &total_read, &writers_done]() {
             while (! writers_done.load(std::memory_order_acquire)) {
-                if (gut::item::ptr item = rq->pop(10)) {
+                if (gut::stage_item::ptr item = rq->pop(10)) {
                     if (item->commit()) {
                         total_read.fetch_add(1, std::memory_order_relaxed);
                     }
@@ -162,7 +162,7 @@ TEST_F(queue_fixture, create_item_multithreaded)
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             }
-            while (gut::item::ptr item = rq->pop(0)) {
+            while (gut::stage_item::ptr item = rq->pop(0)) {
                 if (item->commit()) {
                     total_read.fetch_add(1, std::memory_order_relaxed);
                 }
@@ -171,7 +171,7 @@ TEST_F(queue_fixture, create_item_multithreaded)
 
     const std::function<void()> write_fn = [&wq, &total_written]() {
             for (size_t i = 0; i < k_items_per_writer; ++i) {
-                if (gut::item::ptr item = wq->create()) {
+                if (gut::stage_item::ptr item = wq->create()) {
                     if (item->commit()) {
                         total_written.fetch_add(1, std::memory_order_relaxed);
                     }
