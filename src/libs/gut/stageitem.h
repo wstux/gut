@@ -22,19 +22,27 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_STAGE_ITEM_H_
-#define _LIBS_GUT_STAGE_ITEM_H_
+#ifndef _LIBS_GUT_STAGEITEM_H_
+#define _LIBS_GUT_STAGEITEM_H_
 
 #include <memory>
 #include <string_view>
 
+#include "gut/logging_handler.h"
 #include "gut/details/entry.h"
-#include "gut/details/filequeue/queue.h"
 
 namespace wstux {
 namespace gut {
+namespace details {
+namespace fq {
 
-class stage_queue;
+class queue;
+class sink_queue;
+
+} // namespace fw
+} // namespace details
+
+class stagequeue;
 
 /**
  *  \brief  Transactional item of a file queue.
@@ -44,10 +52,10 @@ class stage_queue;
  *  \warning    An item is not thread-safe. A single item object must be processed
  *      by only one thread at any given time.
  */
-class stage_item final
+class stageitem final
 {
 public:
-    using ptr = std::unique_ptr<stage_item>;
+    using ptr = std::unique_ptr<stageitem>;
 
 public:
     /// \brief  Commits the processing or creation of an element.
@@ -84,12 +92,14 @@ public:
     ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:
-    friend class stage_queue;
-    friend ptr std::make_unique<stage_item>(::wstux::gut::details::fq::sink_queue&, ::wstux::gut::details::fq::queue&);
+    friend class stagequeue;
+    friend ptr std::make_unique<stageitem>(::wstux::gut::details::fq::sink_queue&,
+        ::wstux::gut::details::fq::queue&, ::wstux::gut::logging_handler::ptr&);
 
-    stage_item(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue);
+    stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, logging_handler::ptr& p_logger);
 
 private:
+    const logging_handler::ptr& m_p_logger;
     details::entry m_entry;
 
     details::fq::sink_queue& m_commit_queue;
@@ -100,4 +110,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_STAGE_ITEM_H_ */
+#endif /* _LIBS_GUT_STAGEITEM_H_ */

@@ -29,6 +29,7 @@
 #include <set>
 #include <string>
 
+#include "gut/logging_handler.h"
 #include "gut/details/directory.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/notifier.h"
@@ -46,7 +47,7 @@ public:
     using cleaner_ptr_t = std::shared_ptr<cleaner>;
 
 public:
-    tail(const directory& nook_dir, const cleaner_ptr_t& p_cleaner, const std::function<bool()>& is_stop_fn);
+    tail(const directory& nook_dir, const cleaner_ptr_t& p_cleaner, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
 
     ~tail();
 
@@ -67,6 +68,7 @@ private:
 
 private:
     const directory& m_nook_dir;
+    const logging_handler::ptr& m_p_logger;
     const std::function<bool()> m_is_stop_fn;
 
     cleaner_ptr_t m_p_cleaner;

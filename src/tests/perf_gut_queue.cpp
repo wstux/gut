@@ -28,7 +28,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include "gut/stage_queue.h"
+#include "gut/stagequeue.h"
 
 namespace {
 
@@ -55,14 +55,14 @@ std::filesystem::path make_tmp_dir(const std::string& prefix)
 void perf_queue_create(benchmark::State& state)
 {
     static std::filesystem::path root_dir;
-    static gut::stage_queue::ptr wq;
+    static gut::stagequeue::ptr wq;
 
     if (state.thread_index() == 0) {
         root_dir = make_tmp_dir("perf_queue_create");
         if (root_dir.empty()) {
             state.SkipWithError("Failed to create queue root dir");
         }
-        wq = gut::stage_queue::create_queue(root_dir.string(), []() { return false; });
+        wq = gut::stagequeue::create_queue(root_dir.string(), []() { return false; });
         if (! wq) {
             state.SkipWithError("Failed to create write queue");
             return;
@@ -70,7 +70,7 @@ void perf_queue_create(benchmark::State& state)
     }
 
     for (auto _ : state) {
-        gut::stage_item::ptr item = wq->create();
+        gut::stageitem::ptr item = wq->create();
         if (! item || ! item->commit()) {
             state.SkipWithError("Failed to create or commit item");
             break;
@@ -90,9 +90,9 @@ void perf_queue_move(benchmark::State& state)
 {
     static std::filesystem::path root_dir;
     static std::atomic_size_t moved_count{0};
-    static gut::stage_queue::ptr iq;
-    static gut::stage_queue::ptr pq;
-    static gut::stage_queue::ptr oq;
+    static gut::stagequeue::ptr iq;
+    static gut::stagequeue::ptr pq;
+    static gut::stagequeue::ptr oq;
 
     if (state.thread_index() == 0) {
         root_dir = make_tmp_dir("perf_queue_move");
@@ -100,16 +100,16 @@ void perf_queue_move(benchmark::State& state)
             state.SkipWithError("Failed to create queue root dir");
         }
 
-        oq = gut::stage_queue::create_queue((root_dir / "output").string(), []() { return false; });
-        pq = gut::stage_queue::create_queue((root_dir / "proc").string(), oq->path(), []() { return false; });
-        iq = gut::stage_queue::create_queue((root_dir / "input").string(), pq->path(), []() { return false; });
+        oq = gut::stagequeue::create_queue((root_dir / "output").string(), []() { return false; });
+        pq = gut::stagequeue::create_queue((root_dir / "proc").string(), oq->path(), []() { return false; });
+        iq = gut::stagequeue::create_queue((root_dir / "input").string(), pq->path(), []() { return false; });
         if (! iq || ! pq || ! oq) {
             state.SkipWithError("Failed to create queues");
             return;
         }
 
         for (size_t i = 0; i < 20000; ++i) {
-            gut::stage_item::ptr item = iq->create();
+            gut::stageitem::ptr item = iq->create();
             if (item) {
                 item->commit();
             }
@@ -119,7 +119,7 @@ void perf_queue_move(benchmark::State& state)
 
     for (auto _ : state) {
         while (true) {
-            gut::stage_item::ptr item = pq->pop(0);
+            gut::stageitem::ptr item = pq->pop(0);
             if (!item) {
                 break;
             }
@@ -142,8 +142,8 @@ void perf_queue_move(benchmark::State& state)
 void perf_queue_process_gut(benchmark::State& state)
 {
     static std::filesystem::path root_dir;
-    static gut::stage_queue::ptr iq;
-    static gut::stage_queue::ptr oq;
+    static gut::stagequeue::ptr iq;
+    static gut::stagequeue::ptr oq;
     static std::atomic<size_t> items_processed{0};
 
     if (state.thread_index() == 0) {
@@ -151,21 +151,21 @@ void perf_queue_process_gut(benchmark::State& state)
         if (root_dir.empty()) {
             state.SkipWithError("Failed to create queue root dir");
         }
-        iq = gut::stage_queue::create_queue((root_dir / "input").string(), []() { return false; });
-        oq = gut::stage_queue::create_queue((root_dir / "output").string(), iq->path(), []() { return false; });
+        iq = gut::stagequeue::create_queue((root_dir / "input").string(), []() { return false; });
+        oq = gut::stagequeue::create_queue((root_dir / "output").string(), iq->path(), []() { return false; });
         items_processed.store(0, std::memory_order_relaxed);
     }
 
     if (state.thread_index() % 2 == 0) {
         for (auto _ : state) {
-            gut::stage_item::ptr item = iq->create();
+            gut::stageitem::ptr item = iq->create();
             if (item && item->commit()) {
                 items_processed.fetch_add(1, std::memory_order_relaxed);
             }
         }
     } else {
         for (auto _ : state) {
-            while (gut::stage_item::ptr item = oq->pop(1)) {
+            while (gut::stageitem::ptr item = oq->pop(1)) {
                 item->commit();
             }
         }
@@ -183,10 +183,10 @@ void perf_queue_process_gut(benchmark::State& state)
 void perf_queue_empty_pop(benchmark::State& state)
 {
     std::filesystem::path root_dir = make_tmp_dir("perf_queue_empty_pop");
-    gut::stage_queue::ptr q = gut::stage_queue::create_queue(root_dir.string(), []() { return false; });
+    gut::stagequeue::ptr q = gut::stagequeue::create_queue(root_dir.string(), []() { return false; });
 
     for (auto _ : state) {
-        gut::stage_item::ptr item = q->pop(0);
+        gut::stageitem::ptr item = q->pop(0);
         benchmark::DoNotOptimize(item);
     }
 

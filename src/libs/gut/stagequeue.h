@@ -22,15 +22,16 @@
  * THE SOFTWARE.
  */
 
-#ifndef _LIBS_GUT_STAGE_QUEUE_H_
-#define _LIBS_GUT_STAGE_QUEUE_H_
+#ifndef _LIBS_GUT_STAGEQUEUE_H_
+#define _LIBS_GUT_STAGEQUEUE_H_
 
 #include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "gut/stage_item.h"
+#include "gut/logging_handler.h"
+#include "gut/stageitem.h"
 #include "gut/details/fwd.h"
 #include "gut/details/filequeue/queue.h"
 
@@ -62,11 +63,11 @@ namespace gut {
  *           the target queue);
  *         - `rollback` returns an item from `proc` back to the `input` of the current queue.
  */
-class stage_queue final
+class stagequeue final
 {
 public:
-    using item = stage_item;
-    using ptr = std::unique_ptr<stage_queue>;
+    using item = stageitem;
+    using ptr = std::unique_ptr<stagequeue>;
 
 public:
     /// \brief  Creates a new, empty item in the queue's working directory (`proc`).
@@ -92,37 +93,47 @@ public:
     /// \param  path - the path to the queue's root directory.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when
     ///     an application shuts down.
+    /// \param  p_logger - a pointer to a logging handler.
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
-    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+                            logging_handler::ptr p_logger = logging_handler::ptr());
 
     /// \brief  Creating a queue associated with a destination output queue.
     /// \param  path - the path to the queue's root directory.
     /// \param  out_path - the path to the root directory of the target recipient queue.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when
     ///     an application shuts down.
+    /// \param  p_logger - a pointer to a logging handler.
     /// \return A pointer to an initialized queue, or nullptr in case of an error.
     /// \details    Creates a directory structure at the specified path, configures
     ///     access permissions, and opens them.
     ///     Instead of a local output directory, it uses the input directory of a
     ///     queue located at the provided path. Calling item::commit() on items in
     ///     this queue will deliver them directly into the input pool of the target queue.
-    static ptr create_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
+    static ptr create_queue(const std::string_view& path, const std::string_view& out_path,
+                            const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger = logging_handler::ptr());
 
 private:
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::function<bool()>&);
-    friend ptr std::make_unique<stage_queue>(const std::string_view&, const std::string_view&, const std::function<bool()>&);
+    friend ptr std::make_unique<stagequeue>(const std::string_view&,
+        const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
+    friend ptr std::make_unique<stagequeue>(const std::string_view&,
+        const std::string_view&, const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);
 
-    stage_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn);
+    stagequeue(const std::string_view& path, const std::function<bool()>& is_stop_fn,
+               logging_handler::ptr&& p_logger);
 
-    stage_queue(const std::string_view& path, const std::string_view& out_path, const std::function<bool()>& is_stop_fn);
+    stagequeue(const std::string_view& path, const std::string_view& out_path,
+               const std::function<bool()>& is_stop_fn, logging_handler::ptr&& p_logger);
 
     bool open();
 
 private:
     const std::string m_path;
     const std::function<bool()> m_is_stop_fn;
+
+    logging_handler::ptr m_p_logger;
 
     details::fq::cleaner_ptr_t m_p_cleaner;
 
@@ -134,4 +145,4 @@ private:
 } // namespace gut
 } // namespace wstux
 
-#endif /* _LIBS_GUT_STAGE_QUEUE_H_ */
+#endif /* _LIBS_GUT_STAGEQUEUE_H_ */

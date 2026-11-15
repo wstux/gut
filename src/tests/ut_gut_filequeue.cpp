@@ -65,8 +65,10 @@ public:
 
     fq::queue make_fq(const std::string& path)
     {
-        return fq::queue(path, m_p_cleaner, []() -> bool { return false; });
+        return fq::queue(path, m_p_cleaner, m_p_logger, []() -> bool { return false; });
     }
+
+    gut::logging_handler::ptr& logger() { return m_p_logger; }
 
 private:
     static std::filesystem::path make_tmp_dir(const std::string& prefix)
@@ -85,6 +87,7 @@ private:
     std::filesystem::path m_root_path;
     std::filesystem::path m_work_path;
     details::fq::cleaner::ptr m_p_cleaner;
+    gut::logging_handler::ptr m_p_logger;
 };
 
 } // <anonymous> namespace
@@ -95,7 +98,7 @@ TEST_F(filequeue_fixture, create_new_item)
 
     ASSERT_TRUE(queue.open());
 
-    details::entry e;
+    details::entry e(logger());
     EXPECT_TRUE(queue.create_item(e, "item_0001.dat"));
     EXPECT_TRUE(e.is_alive());
 }
@@ -107,7 +110,7 @@ TEST_F(filequeue_fixture, push_item)
     ASSERT_TRUE(dst_queue.open());
     ASSERT_TRUE(src_queue.open());
 
-    details::entry e;
+    details::entry e(logger());
     ASSERT_TRUE(src_queue.create_item(e, "item_0002.dat"));
     EXPECT_TRUE(dst_queue.push_item(e));
 }
@@ -120,16 +123,16 @@ TEST_F(filequeue_fixture, move_item)
     ASSERT_TRUE(src_queue.open());
 
     {
-        details::entry e;
+        details::entry e(logger());
         ASSERT_TRUE(src_queue.create_item(e, "item_0003.dat"));
     }
     {
-        details::entry e;
+        details::entry e(logger());
         EXPECT_TRUE(src_queue.pop_item(e, dst_queue, 0));
         EXPECT_TRUE(e.is_alive());
         EXPECT_TRUE(e.name() == "item_0003.dat") << e.name();
     }
-    details::entry e;
+    details::entry e(logger());
     EXPECT_FALSE(src_queue.pop_item(e, dst_queue, 0));
     EXPECT_TRUE(dst_queue.pop_item(e, src_queue, 0));
     EXPECT_TRUE(e.name() == "item_0003.dat") << e.name();
@@ -140,8 +143,8 @@ TEST_F(filequeue_fixture, names_collision)
     fq::queue queue = make_fq(src_queue_dir());
     ASSERT_TRUE(queue.open());
 
-    details::entry e1;
-    details::entry e2;
+    details::entry e1(logger());
+    details::entry e2(logger());
 
     ASSERT_TRUE(queue.create_item(e1, "item_0003.dat"));
     ASSERT_FALSE(queue.create_item(e2, "item_0003.dat"));
@@ -159,8 +162,8 @@ TEST_F(filequeue_fixture, threads_race)
     std::atomic_size_t success_count{0};
 
     for (size_t i = 0; i < k_num_threads; ++i) {
-        workers.emplace_back([&src_queue, &dst_queue, &success_count, i]() {
-            details::entry e;
+        workers.emplace_back([&src_queue, &dst_queue, &success_count, i, this]() {
+            details::entry e(logger());
             std::string name = "item_000" + std::to_string(i) + ".dat";
             if (src_queue.create_item(e, name)) {
                 if (dst_queue.push_item(e)) {

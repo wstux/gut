@@ -30,6 +30,7 @@
 #include <memory>
 #include <string_view>
 
+#include "gut/logging_handler.h"
 #include "gut/details/fwd.h"
 
 namespace wstux {
@@ -39,7 +40,7 @@ namespace details {
 class entry final
 {
 public:
-    entry();
+    explicit entry(const logging_handler::ptr& p_logger);
 
     ~entry();
 
@@ -78,6 +79,7 @@ public:
     ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:
+    const logging_handler::ptr& m_p_logger;
     char m_name[gk_filename_buffer_size];
     int m_fd = -1;
     tmp_dir_ptr_t m_p_parent_dir;
