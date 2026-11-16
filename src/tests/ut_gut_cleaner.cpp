@@ -84,9 +84,25 @@ public:
         return true;
     }
 
+    bool exists(const std::string_view& dir_name)
+    {
+        int fd = ::openat(m_p_work_dir->fd(), dir_name.data(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+
+        if (fd < 0) {
+            return (errno != ENOENT);
+        }
+        ::close(fd);
+        return true;
+    }
+
     std::filesystem::path full_path(const details::tmp_dir::ptr& p_dir)
     {
         return m_root_path / p_dir->name();
+    }
+
+    std::filesystem::path full_path(const std::string_view& dir_name)
+    {
+        return m_root_path / dir_name;
     }
 
     void remove_file(const details::tmp_dir::ptr& p_dir, const std::string& filename)
@@ -136,30 +152,33 @@ private:
 TEST_F(cleaner_fixture, remove_dir)
 {
     fq::cleaner cleaner([]() -> bool { return false; });
-    details::tmp_dir::ptr p_dir = create_dir("000000001");
+    const std::string dir_name = "000000001";
+    //details::tmp_dir::ptr p_dir = create_dir("000000001");
 
-    EXPECT_TRUE(cleaner.push(p_dir));
+    EXPECT_TRUE(cleaner.push(create_dir("000000001")));
     EXPECT_TRUE(cleaner.step(0, 0));
-    EXPECT_FALSE(exists(p_dir));
+    EXPECT_FALSE(exists(dir_name));
 }
 
 TEST_F(cleaner_fixture, non_empty_dir)
 {
     fq::cleaner cleaner([]() -> bool { return false; });
-    details::tmp_dir::ptr p_dir = create_dir("000000002");
+    const std::string dir_name = "000000002";
+    details::tmp_dir::ptr p_dir = create_dir(dir_name);
 
     int file_fd = create_file(p_dir, "randitem2.dat");
     ::close(file_fd);
 
     EXPECT_TRUE(cleaner.push(p_dir));
+    p_dir.reset();
     EXPECT_TRUE(cleaner.step(0, 0));
 
-    const std::filesystem::path file_path = full_path(p_dir) / "randitem2.dat";
+    const std::filesystem::path file_path = full_path(dir_name) / "randitem2.dat";
     EXPECT_FALSE(std::filesystem::exists(file_path));
-    EXPECT_FALSE(exists(p_dir));
+    EXPECT_FALSE(exists(dir_name));
 }
 
-TEST_F(cleaner_fixture, DISABLED_locked_file)
+TEST_F(cleaner_fixture, locked_file)
 {
     fq::cleaner cleaner([]() -> bool { return false; });
     details::tmp_dir::ptr p_dir = create_dir("000000003");
@@ -172,7 +191,7 @@ TEST_F(cleaner_fixture, DISABLED_locked_file)
     __GUT_UNLOCK_FD(file_fd);
     ::close(file_fd);
 
-    const std::filesystem::path file_path = full_path(p_dir) / "randitem2.dat";
+    const std::filesystem::path file_path = full_path(p_dir) / "randitem3.dat";
     EXPECT_TRUE(std::filesystem::exists(file_path));
 }
 

@@ -53,7 +53,6 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
     }
 
     bool done = true;
-    m_busy_pool_size = 0;
 
     while (true) {
         if (m_is_stop_fn()) {
@@ -70,15 +69,13 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                 continue;
             }
 
-            tmp_dir::ptr child_dir = std::make_shared<tmp_dir>(p_ent->d_name, p_dir->fd());
-            push(child_dir);
-        } else if (p_ent->d_type == DT_REG) {
-            if (m_busy_pool_size >= k_max_files_per_dir) {
-                return false;
+            tmp_dir::ptr p_child_dir = std::make_shared<tmp_dir>(p_ent->d_name, p_dir);
+            if (p_child_dir->open()) {
+                push(p_child_dir);
             }
-
+            done = false;
+        } else if (p_ent->d_type == DT_REG) {
             int file_fd = RETRY_EINTR(::openat(p_dir->fd(), p_ent->d_name, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
-
             if (file_fd < 0) {
                 if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
                     return false;
@@ -90,14 +87,10 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
             }
 
             if (! __GUT_LOCK_FD(file_fd, true)) {
-                int saved_errno = errno;
+                const int saved_errno = errno;
                 ::close(file_fd);
 
                 if (saved_errno == EWOULDBLOCK || saved_errno == EAGAIN) {
-                    busy_record_t& record = m_busy_pool[m_busy_pool_size++];
-                    assert(::strlen(p_ent->d_name) == record.size() - 1);
-                    ::memcpy(record.data(), p_ent->d_name, record.size() - 1);
-                    record.back() = '\0';
                     done = false;
                 } else {
                     done &= remove_file(reader, p_ent->d_name);
@@ -113,16 +106,10 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
                 continue;
             }
 
-            if (info.st_nlink < 1 || ::time(nullptr) - info.st_mtime < file_gap_seconds) {
-                busy_record_t& record = m_busy_pool[m_busy_pool_size++];
-                //::strncpy(record.data(), p_ent->d_name, record.size() - 1);
-                std::memcpy(record.data(), p_ent->d_name, record.size() - 1);
-                record.back() = '\0';
-
+            if (info.st_nlink < 1 || (::time(nullptr) - info.st_mtime < file_gap_seconds)) {
                 if (info.st_nlink >= 1) {
                     done = false;
                 }
-
                 __GUT_UNLOCK_FD(file_fd);
                 ::close(file_fd);
                 continue;
@@ -131,37 +118,20 @@ bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
             __GUT_UNLOCK_FD(file_fd);
             ::close(file_fd);
 
-            if (info.st_size < 1) {
-                done &= remove_file(reader, p_ent->d_name);
-                continue;
-            }
-
+            done &= remove_file(reader, p_ent->d_name);
+        } else {
             done &= remove_file(reader, p_ent->d_name);
         }
     }
 
-    if (done && p_dir->lock(true)) {
+    if (done && (p_dir.use_count() == 1) && p_dir->lock(true)) {
         if (! p_dir->remove()) {
             p_dir->lock(false);
             done = false;
         }
     }
-    p_dir->close();
+
     return done;
-}
-
-bool cleaner::pop(tmp_dir::ptr& p_dir)
-{
-    std::lock_guard<std::mutex> locker(m_mutex);
-
-    if (! m_dir_queue.empty()) {
-        p_dir = m_dir_queue.front();
-        m_dir_queue.pop_front();
-        return true;
-    }
-
-    p_dir.reset();
-    return false;
 }
 
 bool cleaner::push(const tmp_dir::ptr& p_dir)
@@ -170,33 +140,8 @@ bool cleaner::push(const tmp_dir::ptr& p_dir)
         return false;
     }
 
-    std::unique_lock<std::mutex> lock(m_mutex);
-
-    if (m_dir_queue.full()) {
-        constexpr size_t k_overflow_batch_size = 8;
-
-        size_t items_to_evict = std::min(k_overflow_batch_size, m_dir_queue.size());
-        std::array<tmp_dir::ptr, k_overflow_batch_size> eviction_buffer{};
-
-        for (size_t i = 0; i < items_to_evict; ++i) {
-            eviction_buffer[i] = std::move(m_dir_queue.front());
-            m_dir_queue.pop_front();
-        }
-
-        lock.unlock();
-
-        for (size_t i = 0; i < items_to_evict; ++i) {
-            if (eviction_buffer[i]) {
-                perform(eviction_buffer[i], 0);
-                eviction_buffer[i].reset();
-            }
-        }
-
-        lock.lock();
-    }
-
-    m_dir_queue.push_back(p_dir);
-    return true;
+    std::lock_guard<std::mutex> locker(m_mutex);
+    return m_dir_queue.insert(p_dir).second;
 }
 
 bool cleaner::remove_file(dir_reader& reader, const char* name)
@@ -209,31 +154,38 @@ bool cleaner::remove_file(dir_reader& reader, const char* name)
 
 bool cleaner::step(int dir_gap_seconds, int file_gap_seconds)
 {
-    tmp_dir::ptr dir;
-    std::vector<tmp_dir::ptr> deferred_dirs;
+    tmp_dir::ptr p_dir;
 
-    while (pop(dir)) {
-        if (! dir->open()) {
-            if (errno == ENOENT) continue;
-
-            if (dir->remove()) {
-                continue;
-            }
-            return false;
+    {
+        std::lock_guard<std::mutex> locker(m_mutex);
+        if (m_dir_queue.empty()) {
+            return true;
         }
-
-        if ((dir_gap_seconds > 0) && (::time(nullptr) - dir->mtime() < dir_gap_seconds)) {
-            deferred_dirs.push_back(dir);
-            continue;
-        }
-
-        if (! perform(dir, file_gap_seconds)) {
-            deferred_dirs.push_back(dir);
-        }
+        std::set<tmp_dir::ptr, dir_less>::iterator it = m_dir_queue.begin();
+        p_dir = std::move(*it);
+        m_dir_queue.erase(it);
     }
 
-    for (size_t i = 0; i < deferred_dirs.size(); ++i) {
-        push(deferred_dirs[i]);
+    if (m_is_stop_fn()) {
+        push(p_dir);
+        return false;
+    }
+
+    if (! p_dir->is_open() && ! p_dir->open()) {
+        if (errno != ENOENT) {
+            push(p_dir);
+        }
+        std::lock_guard<std::mutex> locker(m_mutex);
+        return m_dir_queue.empty();
+    }
+
+    if ((dir_gap_seconds > 0) && (::time(nullptr) - p_dir->mtime() < dir_gap_seconds)) {
+        push(p_dir);
+        return false;
+    }
+
+    if (! perform(p_dir, file_gap_seconds)) {
+        push(p_dir);
     }
 
     std::lock_guard<std::mutex> locker(m_mutex);
