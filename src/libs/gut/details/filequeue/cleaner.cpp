@@ -45,6 +45,24 @@ cleaner::cleaner(std::function<bool()> is_stop_fn)
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
 }
 
+bool cleaner::cleanup(int dir_gap_seconds, int file_gap_seconds)
+{
+    size_t dirs_count = 0;
+    {
+        std::lock_guard<std::mutex> locker(m_mutex);
+        dirs_count = m_dir_queue.size();
+    }
+
+    for (; dirs_count > 0; --dirs_count) {
+        if (m_is_stop_fn() || step(dir_gap_seconds, file_gap_seconds)) {
+            break;
+        }
+    }
+
+    std::lock_guard<std::mutex> locker(m_mutex);
+    return m_dir_queue.empty();
+}
+
 bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)
 {
     dir_reader reader;

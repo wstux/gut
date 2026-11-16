@@ -44,6 +44,8 @@ public:
 
     explicit cleaner(std::function<bool()> is_stop_fn);
 
+    bool cleanup(int dir_gap_seconds, int file_gap_seconds);
+
     /**
      *  \brief  Adds a directory to the queue for deferred cleanup.
      *  \param  p_dir - pointer to the directory.
