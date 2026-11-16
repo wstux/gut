@@ -88,6 +88,20 @@ stagequeue::stagequeue(const std::string_view& path, const std::string_view& out
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
+bool stagequeue::cleanup_garbage(int secs_offset, const std::string_view& path,
+                                 const std::function<bool()>& is_stop_fn, const std::string_view& out_path)
+{
+    bool is_ok = true;
+    is_ok &= details::fq::cleaner::cleanup(make_queue_path(path, "input"), 0, secs_offset, false, is_stop_fn);
+    is_ok &= details::fq::cleaner::cleanup(make_queue_path(path, "proc"), 0, secs_offset, true, is_stop_fn);
+    if (! out_path.empty()) {
+        is_ok &= details::fq::cleaner::cleanup(make_queue_path(out_path, "input"), 0, secs_offset, false, is_stop_fn);
+    } else {
+        is_ok &= details::fq::cleaner::cleanup(make_queue_path(path, "output"), 0, secs_offset, false, is_stop_fn);
+    }
+    return is_ok;
+}
+
 stagequeue::item::ptr stagequeue::create()
 {
     item::ptr p_item = std::make_unique<item>(m_output, m_input, m_p_logger);

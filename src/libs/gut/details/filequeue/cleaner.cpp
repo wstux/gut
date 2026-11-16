@@ -28,8 +28,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <cassert>
 #include <cstring>
+#include <vector>
 
+#include "gut/details/directory.h"
 #include "gut/details/retry_eintr.h"
 #include "gut/details/filequeue/cleaner.h"
 #include "gut/details/utils/tmp_dir.h"
@@ -38,6 +41,178 @@ namespace wstux {
 namespace gut {
 namespace details {
 namespace fq {
+namespace {
+
+bool remove_dir(int parent_fd, const std::string_view& dir_name, const std::function<bool()>& is_stop_fn)
+{
+    assert(__GUT_IS_OPEN_FD(parent_fd));
+
+    if (is_stop_fn()) {
+        return false;
+    }
+
+    int dir_fd = RETRY_EINTR(::openat(parent_fd, dir_name.data(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    if (dir_fd < 0) {
+        return (errno == ENOENT);
+    }
+    if (! __GUT_LOCK_FD(dir_fd, true)) {
+        ::close(dir_fd);
+        return false;
+    }
+
+    bool ok = true;
+    dir_reader reader;
+    if (reader.opendir(dir_fd)) {
+        while (struct ::dirent* p_ent = reader.readdir()) {
+            const std::string_view sub_dir_name = p_ent->d_name;
+            if (sub_dir_name == "." || sub_dir_name == "..") {
+                continue;
+            }
+
+            if (p_ent->d_type == DT_DIR) {
+                ok &= remove_dir(dir_fd, p_ent->d_name, is_stop_fn);
+            } else {
+                if (::unlinkat(dir_fd, p_ent->d_name, 0) != 0 && errno != ENOENT) {
+                    ok = false;
+                }
+            }
+        }
+    } else {
+        ok = false;
+    }
+
+    __GUT_UNLOCK_FD(dir_fd);
+    ::close(dir_fd);
+
+    if (ok && ::unlinkat(parent_fd, dir_name.data(), AT_REMOVEDIR) != 0 && errno != ENOENT) {
+        ok = false;
+    }
+    return ok;
+}
+
+bool remove_file(int parent_fd, const std::string_view& file_name, int file_gap_seconds)
+{
+    assert(__GUT_IS_OPEN_FD(parent_fd));
+
+    int file_fd = RETRY_EINTR(::openat(parent_fd, file_name.data(), O_RDONLY | O_NONBLOCK | O_CLOEXEC));
+    if (file_fd < 0) {
+        if (errno == ENOENT) {
+            return true;
+        }
+        if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
+            return false;
+        }
+        return (::unlinkat(parent_fd, file_name.data(), 0) == 0 || errno == ENOENT);
+    }
+
+    if (! __GUT_LOCK_FD(file_fd, true)) {
+        if (errno == EWOULDBLOCK || errno == EAGAIN) {
+            ::close(file_fd);
+            return false;
+        }
+        ::close(file_fd);
+        return (::unlinkat(parent_fd, file_name.data(), 0) == 0 || errno == ENOENT);
+    }
+
+    struct ::stat64 info;
+    if (RETRY_EINTR(::fstat64(file_fd, &info)) != 0) {
+        __GUT_UNLOCK_FD(file_fd);
+        ::close(file_fd);
+        return false;
+    }
+
+    if (info.st_nlink < 1 || (::time(nullptr) - info.st_mtime < file_gap_seconds)) {
+        __GUT_UNLOCK_FD(file_fd);
+        ::close(file_fd);
+        return (info.st_nlink < 1);
+    }
+
+    __GUT_UNLOCK_FD(file_fd);
+    ::close(file_fd);
+    return (::unlinkat(parent_fd, file_name.data(), 0) == 0 || errno == ENOENT);
+}
+
+bool cleanup_active_dir(const tmp_dir::ptr& p_parent, bool remove_files, int file_gap_seconds, const std::function<bool()>& is_stop_fn)
+{
+    assert(p_parent->is_open());
+
+    if (is_stop_fn()) {
+        return false;
+    }
+
+    dir_reader reader;
+    if (! reader.opendir(p_parent)) {
+        return (errno == ENOENT);
+    }
+
+    bool can_cleanup = true;
+    while (struct ::dirent* p_ent = reader.readdir()) {
+        const std::string_view entry_name = p_ent->d_name;
+        if (entry_name == "." || entry_name == "..") {
+            continue;
+        }
+
+        if (p_ent->d_type == DT_DIR) {
+            can_cleanup &= remove_dir(p_parent->fd(), entry_name, is_stop_fn);
+        } else if (p_ent->d_type == DT_REG) {
+            if (entry_name.size() != gk_filename_length) {
+                can_cleanup &= remove_file(p_parent->fd(), entry_name, 0);
+            } else if (remove_files) {
+                can_cleanup &= remove_file(p_parent->fd(), entry_name, file_gap_seconds);
+            } else {
+                can_cleanup = false;
+            }
+        } else {
+            can_cleanup &= ::unlinkat(p_parent->fd(), entry_name.data(), 0) == 0 || errno == ENOENT;
+        }
+    }
+    return can_cleanup;
+}
+
+bool cleanup_primary_dir(cleaner& clnr, const tmp_dir::ptr& p_parent, bool remove_files,
+                         int file_gap_seconds, const std::function<bool()>& is_stop_fn)
+{
+    assert(p_parent->is_open());
+
+    if (is_stop_fn()) {
+        return false;
+    }
+
+    dir_reader reader;
+    if (! reader.opendir(p_parent)) {
+        return (errno == ENOENT);
+    }
+
+    bool can_cleanup = true;
+    while (struct ::dirent* p_ent = reader.readdir()) {
+        const std::string_view entry_name = p_ent->d_name;
+        if (entry_name == "." || entry_name == "..") {
+            continue;
+        }
+
+        if (p_ent->d_type == DT_DIR) {
+            if (entry_name.size() != gk_name_length) {
+                can_cleanup &= remove_dir(p_parent->fd(), entry_name, is_stop_fn);
+            } else {
+                tmp_dir::ptr p_dir = std::make_shared<tmp_dir>(entry_name, p_parent);
+                if (p_dir->open() && p_dir->lock(true)) {
+                    if (cleanup_active_dir(p_dir, remove_files, file_gap_seconds, is_stop_fn)) {
+                        clnr.push(p_dir);
+                    } else {
+                        can_cleanup = false;
+                    }
+                } else {
+                    can_cleanup = false;
+                }
+            }
+        } else {
+            can_cleanup &= ::unlinkat(p_parent->fd(), entry_name.data(), 0) == 0 || errno == ENOENT;
+        }
+    }
+    return can_cleanup;
+}
+
+} // <anonymous> namespace
 
 cleaner::cleaner(std::function<bool()> is_stop_fn)
     : m_is_stop_fn(std::move(is_stop_fn))
@@ -61,6 +236,55 @@ bool cleaner::cleanup(int dir_gap_seconds, int file_gap_seconds)
 
     std::lock_guard<std::mutex> locker(m_mutex);
     return m_dir_queue.empty();
+}
+
+bool cleaner::cleanup(const std::string_view& nook_path, int dir_gap_seconds, int file_gap_seconds,
+                      bool remove_files, const std::function<bool()>& is_stop_fn)
+{
+    directory root_dir(nook_path);
+    if (! root_dir.open()) {
+        return (errno == ENOENT);
+    }
+
+    dir_reader reader;
+    if (! reader.opendir(root_dir.fd())) {
+        return false;
+    }
+
+    bool is_cleaned = true;
+
+    cleaner clnr(is_stop_fn);
+    while (struct ::dirent* p_ent = reader.readdir()) {
+        const std::string_view entry_name = p_ent->d_name;
+        if (entry_name == "." || entry_name == "..") {
+            continue;
+        }
+
+        if (p_ent->d_type == DT_DIR) {
+            if (entry_name.size() != gk_name_length) {
+                is_cleaned &= remove_dir(root_dir.fd(), entry_name, is_stop_fn);
+            } else {
+                tmp_dir::ptr p_dir = std::make_shared<tmp_dir>(entry_name, root_dir.fd());
+                if (p_dir->open() && p_dir->lock(true)) {
+                    if (cleanup_primary_dir(clnr, p_dir, remove_files, file_gap_seconds, is_stop_fn)) {
+                        clnr.push(p_dir);
+                    } else if (remove_files) {
+                        is_cleaned = false;
+                    }
+                } else {
+                    is_cleaned = false;
+                }
+            }
+        } else if (p_ent->d_type == DT_REG) {
+            is_cleaned &= fq::remove_file(root_dir.fd(), entry_name, 0);
+        } else {
+            is_cleaned &= ::unlinkat(root_dir.fd(), entry_name.data(), 0) == 0 || errno == ENOENT;
+        }
+    }
+    if (! clnr.m_dir_queue.empty()) {
+        is_cleaned &= clnr.cleanup(dir_gap_seconds, file_gap_seconds);
+    }
+    return is_cleaned;
 }
 
 bool cleaner::perform(const tmp_dir::ptr& p_dir, int file_gap_seconds)

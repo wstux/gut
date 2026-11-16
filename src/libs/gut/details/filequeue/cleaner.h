@@ -66,6 +66,8 @@ public:
      */
     bool step(int dir_gap_seconds, int file_gap_seconds);
 
+    static bool cleanup(const std::string_view& nook_path, int dir_gap_seconds, int file_gap_seconds,
+                        bool remove_files, const std::function<bool()>& is_stop_fn);
 private:
     using busy_record_t = std::array<char, gk_name_buffer_size>;
 

@@ -73,6 +73,19 @@ public:
         return fd;
     }
 
+    void create_file(const std::filesystem::path& path)
+    {
+        if (! exists_path(path.parent_path())) {
+            ASSERT_TRUE(std::filesystem::create_directories(path.parent_path())) << errno;
+        }
+
+        int fd = ::open(path.c_str(), O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC, 0644);
+        ASSERT_TRUE(fd > 0) << "Failed to create file: " << path;
+        const ssize_t rc = ::write(fd, "test_data", 9);
+        ASSERT_TRUE(rc == 9);
+        ::close(fd);
+    }
+
     bool exists(const details::tmp_dir::ptr& p_dir)
     {
         int fd = ::openat(m_p_work_dir->fd(), p_dir->name().data(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
@@ -87,7 +100,16 @@ public:
     bool exists(const std::string_view& dir_name)
     {
         int fd = ::openat(m_p_work_dir->fd(), dir_name.data(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        if (fd < 0) {
+            return (errno != ENOENT);
+        }
+        ::close(fd);
+        return true;
+    }
 
+    bool exists_path(const std::filesystem::path& path)
+    {
+        int fd = ::open(path.c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC);
         if (fd < 0) {
             return (errno != ENOENT);
         }
@@ -109,6 +131,8 @@ public:
     {
         std::filesystem::remove(m_root_path / p_dir->name() / filename);
     }
+
+    std::filesystem::path root_path() const { return m_root_path; }
 
 private:
     void create_dir(details::tmp_dir::ptr& p_dir, const std::string& name)
@@ -221,6 +245,100 @@ TEST_F(cleaner_fixture, dir_timeout_to_remove)
 
     EXPECT_FALSE(cleaner.step(5, 0));
     EXPECT_TRUE(std::filesystem::exists(full_path(p_dir)));
+}
+
+TEST_F(cleaner_fixture, cleanup_with_saving_files)
+{
+    const std::filesystem::path valid_file = root_path() / "000000001/000000002/item_0001.dat";
+    create_file(valid_file);
+
+    const std::filesystem::path empty_branch = root_path() / "000000003/000000004";
+    ASSERT_TRUE(std::filesystem::create_directories(empty_branch));
+
+    EXPECT_TRUE(fq::cleaner::cleanup(root_path().string(), 0, 0, false, []() -> bool { return false; }));
+    EXPECT_TRUE(exists("000000001/000000002"));
+    EXPECT_TRUE(exists("000000001/000000002/item_0001.dat"));
+    EXPECT_FALSE(exists("000000003"));
+}
+
+TEST_F(cleaner_fixture, cleanup_partial_primary_dir)
+{
+    const std::filesystem::path active_with_data = root_path() / "000000010/000000011/item_0002.dat";
+    const std::filesystem::path empty_active = root_path() / "000000010/000000012";
+
+    create_file(active_with_data);
+    std::filesystem::create_directories(empty_active);
+
+    EXPECT_TRUE(fq::cleaner::cleanup(root_path().string(), 0, 0, false, []() -> bool { return false; }));
+    EXPECT_TRUE(exists("000000010"));
+    EXPECT_TRUE(exists("000000010/000000011"));
+    EXPECT_TRUE(exists("000000010/000000011/item_0002.dat"));
+    EXPECT_FALSE(exists("000000010/000000012"));
+}
+
+TEST_F(cleaner_fixture, cleanup_removes_files)
+{
+    const std::filesystem::path abandoned_file = root_path() / "000000020/000000021/item_0003.dat";
+    create_file(abandoned_file);
+
+    EXPECT_TRUE(fq::cleaner::cleanup(root_path().string(), 0, 0, true, []() -> bool { return false; }));
+
+    EXPECT_FALSE(std::filesystem::exists(abandoned_file));
+    EXPECT_FALSE(exists("000000020"));
+}
+
+TEST_F(cleaner_fixture, cleanup_skips_locked_and_fresh_files)
+{
+    const std::filesystem::path locked_dir = root_path() / "000000030/000000031/item_0004.dat";
+    const std::filesystem::path fresh_dir = root_path() / "000000030/000000032/item_0005.dat";
+
+    create_file(locked_dir);
+    create_file(fresh_dir);
+
+    const int lock_fd = ::open(locked_dir.c_str(), O_RDONLY | O_CLOEXEC);
+    ASSERT_TRUE(lock_fd > 0);
+    ASSERT_TRUE(__GUT_LOCK_FD(lock_fd, true));
+
+    EXPECT_FALSE(fq::cleaner::cleanup(root_path().string(), 0, 60, true, []() -> bool { return false; }));
+    EXPECT_TRUE(exists("000000030/000000031/item_0004.dat"));
+    EXPECT_TRUE(exists("000000030/000000032/item_0005.dat"));
+    EXPECT_TRUE(exists("000000030"));
+    EXPECT_TRUE(exists("000000030/000000031"));
+    EXPECT_TRUE(exists("000000030/000000032"));
+
+    __GUT_UNLOCK_FD(lock_fd);
+    ::close(lock_fd);
+}
+
+TEST_F(cleaner_fixture, cleanup_garbage)
+{
+    create_file(root_path() / "bad_dir/nested/invalid.dat");
+    create_file(root_path() / "000000040/too_long_directory_name/item_0006.dat");
+    create_file(root_path() / "000000040/000000041/invalid.txt");
+    create_file(root_path() / "stray_root_file.tmp");
+
+    EXPECT_TRUE(fq::cleaner::cleanup(root_path().string(), 0, 0, false, []() -> bool { return false; }));
+    EXPECT_FALSE(exists("bad_dir"));
+    EXPECT_FALSE(exists("000000040/too_long_directory_name"));
+    EXPECT_FALSE(exists("000000040/000000041/invalid.txt"));
+    EXPECT_FALSE(exists("stray_root_file.tmp"));
+    EXPECT_FALSE(exists("000000040"));
+}
+
+TEST_F(cleaner_fixture, cleanup_locked_directory)
+{
+    const std::filesystem::path active_dir = root_path() / "000000050/000000051";
+    ASSERT_TRUE(std::filesystem::create_directories(active_dir));
+
+    int dir_fd = ::open(active_dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    ASSERT_TRUE(dir_fd > 0);
+    ASSERT_TRUE(__GUT_LOCK_FD(dir_fd, false));
+
+    EXPECT_TRUE(fq::cleaner::cleanup(root_path().string(), 0, 0, false, []() -> bool { return false; }));
+    EXPECT_TRUE(exists("000000050/000000051"));
+
+    __GUT_UNLOCK_FD(dir_fd);
+    ::close(dir_fd);
 }
 
 int main(int argc, char** argv)
