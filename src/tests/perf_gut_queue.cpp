@@ -289,17 +289,16 @@ BENCHMARK_DEFINE_F(queue_fixture, perf_queue_process_gut)(benchmark::State& stat
     size_t processed_count = 0;
     for (auto _ : state) {
         if (gut::stageitem::ptr w_item = iq->create()) {
-            w_item->commit();
-        }
-
-        while (true) {
-            if (gut::stageitem::ptr r_item = oq->pop(0)) {
-                if (r_item->commit()) {
-                    ++processed_count;
-                }
+            if (! w_item->commit()) {
+                state.SkipWithError("Failed to create or commit item");
                 break;
             }
-            std::this_thread::yield();
+        }
+
+        if (gut::stageitem::ptr r_item = oq->pop(100)) {
+            if (r_item->commit()) {
+                ++processed_count;
+            }
         }
     }
     state.SetItemsProcessed(processed_count);
