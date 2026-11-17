@@ -31,12 +31,17 @@
 namespace wstux {
 namespace gut {
 
-stageitem::stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, logging_handler::ptr& p_logger)
+stageitem::stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, const logging_handler::ptr& p_logger)
     : m_p_logger(p_logger)
     , m_entry(m_p_logger)
     , m_commit_queue(commit_queue)
     , m_rollback_queue(rollback_queue)
 {}
+
+stageitem::~stageitem()
+{
+    m_entry.close();
+}
 
 bool stageitem::commit()
 {

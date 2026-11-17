@@ -14,19 +14,32 @@ The queue consists of three isolated subdirectories:
 2. `proc/` — a working directory for items currently being processed;
 3. `output/` — outgoing data that has already been processed.
 
+## Limitations and scope of application
+
+The library implements an **"one event — one file"** architecture and is optimized for the
+reliable transfer of medium to large payloads (ranging from a few kilobytes to tens of
+megabytes).
+
+**Not recommended for very small events (< 1–4 KB).** The minimum block size in Linux file
+systems (ext4/xfs) and the page size of SSD memory are typically 4 KB. When writing a large
+number of tiny messages (tens or hundreds of bytes), each file still occupies an entire block
+on the disk as well as a separate `inode`. This leads to a high **write amplification** factor,
+accelerated SSD wear, and the risk of exhausting the available `inode` count on the partition
+if a large backlog accumulates.
+
 ### Data lifecycle
 
 1. Creation
 
 ```
-   [stage_queue::create()]
+    [stagequeue::create()]
               │
               ▼
-         ┌─────────┐  stage_item::rollback() ┌─────────┐
-         │  proc/  │ ──────────────────────► │  input/ │
-         └────┬────┘                         └─────────┘
+         ┌─────────┐  stageitem::rollback() ┌─────────┐
+         │  proc/  │ ─────────────────────► │  input/ │
+         └────┬────┘                        └─────────┘
               │
-     stage_item::commit()
+      stageitem::commit()
               │
               ▼
          ┌─────────┐
@@ -37,11 +50,11 @@ The queue consists of three isolated subdirectories:
 2. Getting the available data
 
 ```
-   ┌─────────┐  stage_queue::pop()  ┌─────────┐  stage_item::commit()  ┌─────────┐
-   │  input/ │ ───────────────────► │  proc/  │ ─────────────────────► │ output/ │
-   └────▲────┘                      └────┬────┘                        └─────────┘
-        │                                │
-        └──── stage_item::rollback() ────┘
+   ┌─────────┐  stagequeue::pop()  ┌─────────┐  stageitem::commit()  ┌─────────┐
+   │  input/ │ ──────────────────► │  proc/  │ ────────────────────► │ output/ │
+   └────▲────┘                     └────┬────┘                       └─────────┘
+        │                               │
+        └──── stageitem::rollback() ────┘
 ```
 
 ### File storage and directory rotation
@@ -74,23 +87,23 @@ multiple sources. No more than 16 directories are kept open in memory at any giv
 ```cpp
 #include <iostream>
 
-#include <gut/stage_item.h>
-#include <gut/stage_queue.h>
+#include <gut/stageitem.h>
+#include <gut/stagequeue.h>
 
 int main()
 {
     // 1. Create a receiver queue and a sender queue (connect the sender's output to the receiver's input)
-    stage_queue::ptr p_rq = wstux::gut::stage_queue::create_queue("/tmp/gut_example/queue_1", []() { return false; });
-    stage_queue::ptr p_wq = wstux::gut::stage_queue::create_queue("/tmp/gut_example/queue_2", p_rq->path(), []() { return false; });
+    stagequeue::ptr p_rq = wstux::gut::stagequeue::create_queue("/tmp/gut_example/queue_1", []() { return false; });
+    stagequeue::ptr p_wq = wstux::gut::stagequeue::create_queue("/tmp/gut_example/queue_2", p_rq->path(), []() { return false; });
 
     // 2. Writing an item
-    if (stage_item::ptr p_item = p_wq->create()) {
+    if (stageitem::ptr p_item = p_wq->create()) {
         // Work with p_item
         p_item->commit();
     }
 
     // 3. Reading and processing an item (waiting up to 1000 ms)
-    if (stage_item::ptr p_item = p_rq->pop(1000)) {
+    if (stageitem::ptr p_item = p_rq->pop(1000)) {
         bool success = true;
         if (success) {
             r_item->commit();

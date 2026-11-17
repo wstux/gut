@@ -58,6 +58,8 @@ public:
     using ptr = std::unique_ptr<stageitem>;
 
 public:
+    ~stageitem();
+
     /// \brief  Commits the processing or creation of an element.
     /// \return true if the element was successfully committed, otherwise false.
     /// \details    Atomically moves a file from the working directory to the target
@@ -94,9 +96,9 @@ public:
 private:
     friend class stagequeue;
     friend ptr std::make_unique<stageitem>(::wstux::gut::details::fq::sink_queue&,
-        ::wstux::gut::details::fq::queue&, ::wstux::gut::logging_handler::ptr&);
+        ::wstux::gut::details::fq::queue&, const ::wstux::gut::logging_handler::ptr&);
 
-    stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, logging_handler::ptr& p_logger);
+    stageitem(details::fq::sink_queue& commit_queue, details::fq::queue& rollback_queue, const logging_handler::ptr& p_logger);
 
 private:
     const logging_handler::ptr& m_p_logger;
