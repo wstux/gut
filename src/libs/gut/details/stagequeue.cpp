@@ -24,6 +24,7 @@
 
 #include <cassert>
 #include <filesystem>
+#include <utility>
 
 #include "gut/stagequeue.h"
 #include "gut/details/logging.h"
@@ -104,7 +105,7 @@ bool stagequeue::cleanup_garbage(int secs_offset, const std::string_view& path,
 
 stagequeue::item::ptr stagequeue::create()
 {
-    item::ptr p_item = std::make_unique<item>(m_output, m_input, m_p_logger);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input, std::as_const(m_p_logger));
 
     if (! m_proc.create_item(p_item->m_entry)) {
         assert(! p_item->m_entry.is_alive());
@@ -187,7 +188,7 @@ bool stagequeue::open()
 
 stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
 {
-    item::ptr p_item = std::make_unique<item>(m_output, m_input, m_p_logger);
+    item::ptr p_item = std::make_unique<item>(m_output, m_input, std::as_const(m_p_logger));
 
     if (! m_input.pop_item(p_item->m_entry, m_proc, wait_ms)) {
         assert(! p_item->m_entry.is_alive());
@@ -196,6 +197,54 @@ stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
         assert(p_item->m_entry.is_alive());
     }
     return p_item;
+}
+
+bool stagequeue::rollback(const std::string_view& path, const std::function<bool(item::ptr&)>& rollback_fn,
+                          const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn)
+{
+    if (path.empty()) {
+        GUT_LOG_ERROR(p_logger, "Stage queue directory path is empty");
+        return false;
+    }
+
+    details::fq::cleaner::ptr p_cleaner = std::make_shared<details::fq::cleaner>(is_stop_fn);
+
+    details::fq::sink_queue input(make_queue_path(path, "input"), p_logger, is_stop_fn);
+    details::fq::queue dead(make_queue_path(path, "dead"), p_cleaner, p_logger, is_stop_fn);
+    details::fq::queue proc(make_queue_path(path, "proc"), p_cleaner, p_logger, is_stop_fn);
+
+    if (! input.open() || ! proc.open() || ! dead.open()) {
+        GUT_LOG_ERROR(p_logger, "Failed to open input, proc or dead directory");
+        return false;
+    }
+
+    bool all_rolled_back = true;
+    while (! is_stop_fn()) {
+        item::ptr p_item = std::make_unique<item>(input, dead, p_logger);
+
+        if (! proc.pop_item(p_item->m_entry, proc, 0)) {
+            break;
+        }
+
+        if (rollback_fn(p_item)) {
+            if (! p_item->commit()) {
+                GUT_LOG_ERROR(p_logger, "Failed to move item %s to input directory", p_item->m_entry.name().data());
+                all_rolled_back = false;
+            }
+        } else {
+            if (! p_item->rollback()) {
+                GUT_LOG_ERROR(p_logger, "Failed to move item %s to dead directory", p_item->m_entry.name().data());
+            }
+            all_rolled_back = false;
+        }
+    }
+
+    if (is_stop_fn()) {
+        return false;
+    }
+
+    p_cleaner->cleanup(0, 0);
+    return all_rolled_back;
 }
 
 } // namespace gut

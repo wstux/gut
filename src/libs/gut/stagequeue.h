@@ -118,6 +118,20 @@ public:
     static ptr create_queue(const std::string_view& path, const std::string_view& out_path,
                             const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger = logging_handler::ptr());
 
+    /// \brief  Restores dangling items from the proc directory back to input.
+    /// \param  path - the root path of the queue.
+    /// \param  rollback_fn - predicate for processing the element before rolling back.
+    /// \param  p_logger - a pointer to a logging handler.
+    /// \param  is_stop_fn - a functor for interrupting blocking operations when
+    ///     an application shuts down.
+    /// \return true if all found elements were successfully rolled back, otherwise, false.
+    /// \details    Scans the proc directory for unlocked items left over after a crash
+    ///     or improper shutdown. Each found item is passed to rollback_fn. If the predicate
+    ///     returns true, the item is moved back to the input directory. Otherwise, it
+    ///     is moved to the dead directory (created on demand) for further inspection and analysis.
+    static bool rollback(const std::string_view& path, const std::function<bool(item::ptr&)>& rollback_fn,
+                         const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
+
 private:
     friend ptr std::make_unique<stagequeue>(const std::string_view&,
         const std::function<bool()>&, ::wstux::gut::logging_handler::ptr&&);

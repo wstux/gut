@@ -56,6 +56,19 @@ public:
         std::filesystem::remove_all(m_root_path);
     }
 
+    void generate_items_in_proc(const std::filesystem::path& queue_path, size_t count)
+    {
+
+        gut::stagequeue::ptr p_queue = gut::stagequeue::create_queue(queue_path.string(), []() { return false; });
+        ASSERT_TRUE(p_queue);
+
+        // 1. Генерируем сообщения и отправляем в input целевой очереди
+        for (size_t i = 0; i < count; ++i) {
+            gut::stagequeue::item::ptr p_item = p_queue->create();
+            ASSERT_TRUE(p_item);
+        }
+    }
+
     const std::filesystem::path& root_path() const { return m_root_path; }
 
     void join_read_workers()
@@ -189,6 +202,90 @@ TEST_F(queue_fixture, create_item_multithreaded)
     const size_t expected = k_write_threads * k_items_per_writer;
     EXPECT_EQ(total_written.load(), expected);
     EXPECT_EQ(total_read.load(), expected);
+}
+
+TEST_F(queue_fixture, rollback_proc)
+{
+    constexpr size_t k_items_count = 5;
+    std::filesystem::path queue_dir = root_path() / "rollback_proc";
+    generate_items_in_proc(queue_dir, k_items_count);
+
+    size_t callback_calls = 0;
+    std::function<bool(gut::stageitem::ptr&)> rollback_fn = [&callback_calls](gut::stageitem::ptr& p_item) -> bool {
+        if (p_item) {
+            ++callback_calls;
+            return true;
+        }
+        return false;
+    };
+
+    EXPECT_TRUE(gut::stagequeue::rollback(queue_dir.string(), rollback_fn, nullptr, []() { return false; }));
+    EXPECT_TRUE(callback_calls == k_items_count) << callback_calls;
+
+    gut::stagequeue::ptr p_queue = gut::stagequeue::create_queue(queue_dir.string(), []() -> bool { return false; });
+    size_t popped_count = 0;
+    while (gut::stagequeue::item::ptr p_item = p_queue->pop(0)) {
+        ++popped_count;
+    }
+    EXPECT_TRUE(popped_count == k_items_count) << popped_count;
+}
+
+TEST_F(queue_fixture, rollback_proc_fails_predicate)
+{
+    constexpr size_t k_items_count = 4;
+    std::filesystem::path queue_dir = root_path() / "rollback_proc_fails_predicate";
+    generate_items_in_proc(queue_dir, k_items_count);
+
+    size_t idx = 0;
+    std::function<bool(gut::stageitem::ptr&)> rollback_fn = [&idx](gut::stageitem::ptr&) -> bool {
+        return (idx++ % 2 == 0);
+    };
+
+    EXPECT_FALSE(gut::stagequeue::rollback(queue_dir.string(), rollback_fn, nullptr, []() { return false; }));
+
+    gut::stagequeue::ptr p_queue = gut::stagequeue::create_queue(queue_dir.string(), []() -> bool { return false; });
+    size_t popped_count = 0;
+    while (gut::stagequeue::item::ptr p_item = p_queue->pop(0)) {
+        ++popped_count;
+    }
+    EXPECT_TRUE(popped_count == 2) << popped_count;
+}
+
+TEST_F(queue_fixture, rollback_proc_skips_locked_item)
+{
+    std::filesystem::path queue_dir = root_path() / "rollback_proc_skips_locked_items";
+
+    gut::stagequeue::ptr p_queue = gut::stagequeue::create_queue(queue_dir.string(), []() -> bool { return false; });
+
+    gut::stagequeue::item::ptr p_item = p_queue->create();
+    ASSERT_TRUE(p_item);
+
+    size_t rolled_back = 0;
+    std::function<bool(gut::stageitem::ptr&)> rollback_fn = [&rolled_back](gut::stageitem::ptr&) -> bool {
+        ++rolled_back;
+        return true;
+    };
+    EXPECT_TRUE(gut::stagequeue::rollback(queue_dir.string(), rollback_fn, nullptr, []() { return false; }));
+    EXPECT_TRUE(rolled_back == 0) << rolled_back;
+}
+
+TEST_F(queue_fixture, rollback_proc_skips_locked_items)
+{
+    std::filesystem::path queue_dir = root_path() / "rollback_proc_skips_locked_items";
+    generate_items_in_proc(queue_dir, 3);
+
+    gut::stagequeue::ptr p_queue = gut::stagequeue::create_queue(queue_dir.string(), []() -> bool { return false; });
+
+    gut::stagequeue::item::ptr p_item = p_queue->create();
+    ASSERT_TRUE(p_item);
+
+    size_t rolled_back = 0;
+    std::function<bool(gut::stageitem::ptr&)> rollback_fn = [&rolled_back](gut::stageitem::ptr&) -> bool {
+        ++rolled_back;
+        return true;
+    };
+    EXPECT_TRUE(gut::stagequeue::rollback(queue_dir.string(), rollback_fn, nullptr, []() { return false; }));
+    EXPECT_TRUE(rolled_back == 3) << rolled_back;
 }
 
 int main(int argc, char** argv)
