@@ -34,6 +34,11 @@ fileitem::fileitem(logging_handler::ptr& p_logger)
     , m_entry(m_p_logger)
 {}
 
+fileitem::~fileitem()
+{
+    m_entry.close();
+}
+
 bool fileitem::is_alive() const
 {
     return m_entry.is_alive();

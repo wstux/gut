@@ -43,6 +43,8 @@ public:
     using ptr = std::unique_ptr<fileitem>;
 
 public:
+    ~fileitem();
+
     bool is_alive() const;
 
     bool is_mapped() const;
