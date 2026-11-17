@@ -26,7 +26,7 @@
 #include <sys/inotify.h>
 
 #include <time.h>
-
+#include <cassert>
 #include <type_traits>
 
 #include "gut/details/logging.h"

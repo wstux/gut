@@ -89,6 +89,9 @@ public:
     ///     the current thread blocks until a new file appears or a timeout occurs.
     item::ptr pop(size_t wait_ms);
 
+    static bool cleanup_garbage(int secs_offset, const std::string_view& path,
+                                const std::function<bool()>& is_stop_fn, const std::string_view& out_path = std::string_view());
+
     /// \brief  Creating a queue.
     /// \param  path - the path to the queue's root directory.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when

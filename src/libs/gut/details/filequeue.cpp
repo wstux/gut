@@ -133,6 +133,11 @@ filequeue::filequeue(const std::string_view& path, const std::function<bool()>& 
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
+bool filequeue::cleanup_garbage(int secs_offset, const std::string_view& path, const std::function<bool()>& is_stop_fn, bool remove_files)
+{
+    return details::fq::cleaner::cleanup(path, 0, secs_offset, remove_files, is_stop_fn);
+}
+
 filequeue::item::ptr filequeue::create()
 {
     item::ptr p_item = std::make_unique<item>(m_p_logger);

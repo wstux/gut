@@ -28,9 +28,9 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <set>
 
-#include "gut/details/circular_buffer.h"
-#include "gut/details/fwd.h"
+#include "gut/details/utils/tmp_dir.h"
 
 namespace wstux {
 namespace gut {
@@ -44,12 +44,14 @@ public:
 
     explicit cleaner(std::function<bool()> is_stop_fn);
 
+    bool cleanup(int dir_gap_seconds, int file_gap_seconds);
+
     /**
      *  \brief  Adds a directory to the queue for deferred cleanup.
      *  \param  p_dir - pointer to the directory.
      *  \return true if successfully added, false if already in the queue.
      */
-    bool push(const tmp_dir_ptr_t& p_dir);
+    bool push(const tmp_dir::ptr& p_dir);
 
     /**
      *  \brief  Performs one complete cleanup cycle for all directories accumulated
@@ -64,28 +66,28 @@ public:
      */
     bool step(int dir_gap_seconds, int file_gap_seconds);
 
+    static bool cleanup(const std::string_view& nook_path, int dir_gap_seconds, int file_gap_seconds,
+                        bool remove_files, const std::function<bool()>& is_stop_fn);
 private:
     using busy_record_t = std::array<char, gk_name_buffer_size>;
 
-private:
-    bool perform(const tmp_dir_ptr_t& p_dir, int file_gap_seconds);
+    struct dir_less final {
+        bool operator()(const tmp_dir::ptr& lhs, const tmp_dir::ptr& rhs) const noexcept {
+            return lhs->name() < rhs->name();
+        }
+    };
 
-    bool pop(tmp_dir_ptr_t& p_dir);
+private:
+    bool perform(const tmp_dir::ptr& p_dir, int file_gap_seconds);
 
     bool remove_file(dir_reader& reader, const char* name);
 
 private:
-    static constexpr size_t k_max_files_per_dir = 3000;
-    static constexpr size_t k_queue_size = 4096;
-
     const std::function<bool()> m_is_stop_fn;
 
     std::mutex m_mutex;
 
-    std::array<busy_record_t, k_max_files_per_dir> m_busy_pool;
-    size_t m_busy_pool_size = 0;
-
-    circular_buffer<tmp_dir_ptr_t, k_queue_size> m_dir_queue;
+    std::set<tmp_dir::ptr, dir_less> m_dir_queue;
 };
 
 } // namespace fq

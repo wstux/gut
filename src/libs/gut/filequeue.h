@@ -130,6 +130,8 @@ public:
     /// \return true if the element was successfully pushed, otherwise false.
     bool push(const item::ptr& p_item);
 
+    static bool cleanup_garbage(int secs_offset, const std::string_view& path, const std::function<bool()>& is_stop_fn, bool remove_files);
+
     /// \brief  Creating a queue.
     /// \param  path - the path to the queue's root directory.
     /// \param  is_stop_fn - a functor for interrupting blocking operations when

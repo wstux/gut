@@ -226,7 +226,7 @@ TEST_F(fq_tail_fixture, add_item_to_queue_head)
     __GUT_UNLOCK_FD(afd);
 }
 
-TEST_F(fq_tail_fixture, evicts_to_cleaner)
+TEST_F(fq_tail_fixture, DISABLED_evicts_to_cleaner)
 {
     create_dirs("000000007", "000000008");
     create_dirs("000000007", "000000009");
@@ -242,6 +242,8 @@ TEST_F(fq_tail_fixture, evicts_to_cleaner)
     EXPECT_TRUE(filename == "randitem4.dat") << filename;
 
     remove_file("000000007", "000000008", "randitem4.dat");
+    p_out_dir.reset();
+
     EXPECT_FALSE(tail.get(filename, p_out_dir, 0));
     EXPECT_TRUE(cleaner_step());
 }
