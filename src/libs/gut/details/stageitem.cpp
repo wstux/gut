@@ -43,6 +43,11 @@ stageitem::~stageitem()
     m_entry.close();
 }
 
+/**
+ *  \details    Atomically moves a file from the working directory to the target output
+ *      directory and releases the resources being used. Following a successful call,
+ *      the object becomes inactive.
+ */
 bool stageitem::commit()
 {
     assert(m_entry.is_alive());
@@ -73,6 +78,13 @@ bool stageitem::is_mapped() const
     return m_entry.is_mapped();
 }
 
+/**
+ *  \details    Convenience overload that maps size() bytes starting at offset 0. If a
+ *      mapping already exists, it is replaced or reused depending on implementation.
+ *
+ *  \note   The returned pointer remains valid until unmap(), commit(), rollback(),
+ *      remove(), or the destructor is called.
+ */
 const void* stageitem::map()
 {
     const off64_t file_size = size();
@@ -95,6 +107,10 @@ ssize_t stageitem::read(const off64_t offset, char* p_buffer, const size_t size)
     return m_entry.read(offset, p_buffer, size);
 }
 
+/**
+ *  \details    Unlinks the file from 'proc', and closes the descriptor. After a successful
+ *      call, is_alive() becomes 'false'.
+ */
 bool stageitem::remove()
 {
     if (is_mapped()) {
@@ -103,6 +119,10 @@ bool stageitem::remove()
     return m_entry.remove();
 }
 
+/**
+ *  \details    Returns a file from the working directory back to the incoming directory
+ *      of the current queue, making it available for retrieval once again.
+ */
 bool stageitem::rollback()
 {
     assert(m_entry.is_alive());
@@ -127,11 +147,19 @@ ssize_t stageitem::size() const
     return m_entry.size();
 }
 
+/**
+ *  \details    If the file was larger than size, extra data is discarded. If it was
+ *      smaller, it is extended and zero-filled. Any active memory mapping is unmapped
+ *      prior to resizing.
+ */
 bool stageitem::truncate(const size_t size)
 {
     return m_entry.truncate(size);
 }
 
+/**
+ *  \details    Safe to call even if is_mapped() is false (no-op in that case).
+ */
 void stageitem::unmap()
 {
     m_entry.unmap();

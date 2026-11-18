@@ -29,6 +29,15 @@ TestTarget(ut_gut_cleaner
         googletest
 )
 
+TestTarget(ut_gut_directory
+    SOURCES
+        ut_gut_directory.cpp
+    LIBRARIES
+        gut
+    DEPENDS
+        googletest
+)
+
 TestTarget(ut_gut_filequeue
     SOURCES
         ut_gut_filequeue.cpp
@@ -50,6 +59,15 @@ TestTarget(ut_gut_filequeue_notifier
 TestTarget(ut_gut_filequeue_tail
     SOURCES
         ut_gut_filequeue_tail.cpp
+    LIBRARIES
+        gut
+    DEPENDS
+        googletest
+)
+
+TestTarget(ut_gut_generator
+    SOURCES
+        ut_gut_generator.cpp
     LIBRARIES
         gut
     DEPENDS

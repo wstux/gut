@@ -86,12 +86,12 @@ tmp_dir::~tmp_dir()
     __GUT_CLOSE_FD(m_fd);
 }
 
-void tmp_dir::close()
+void tmp_dir::close() noexcept
 {
     __GUT_CLOSE_FD(m_fd);
 }
 
-bool tmp_dir::create()
+bool tmp_dir::create() noexcept
 {
     assert(! __GUT_IS_OPEN_FD(m_fd));
 
@@ -119,17 +119,17 @@ bool tmp_dir::create()
     return false;
 }
 
-bool tmp_dir::is_open() const
+bool tmp_dir::is_open() const noexcept
 {
     return __GUT_IS_OPEN_FD(m_fd);
 }
 
-bool tmp_dir::lock(bool is_exclusive) const
+bool tmp_dir::lock(bool is_exclusive) const noexcept
 {
     return __GUT_LOCK_FD(m_fd, is_exclusive);
 }
 
-::time_t tmp_dir::mtime() const
+::time_t tmp_dir::mtime() const noexcept
 {
     assert(__GUT_IS_OPEN_FD(m_fd));
     struct ::stat64 info;
@@ -137,14 +137,14 @@ bool tmp_dir::lock(bool is_exclusive) const
     return (rc == 0) ? info.st_mtime : -1;
 }
 
-bool tmp_dir::open()
+bool tmp_dir::open() noexcept
 {
     assert(m_name[0] != '\0');
     assert(__GUT_IS_OPEN_FD(m_parent_fd));
     return directory::open_dir(m_fd, m_parent_fd, m_name);
 }
 
-bool tmp_dir::remove()
+bool tmp_dir::remove() noexcept
 {
     if (m_name[0] == '\0') {
         return true;
@@ -163,7 +163,7 @@ bool tmp_dir::remove()
     return true;
 }
 
-size_t tmp_dir::size() const
+size_t tmp_dir::size() const noexcept
 {
     struct ::stat64 info;
     const int rc = RETRY_EINTR(::fstat64(m_fd, &info));
@@ -173,26 +173,8 @@ size_t tmp_dir::size() const
     return static_cast<size_t>(-1);
 }
 
-void tmp_dir::unlock() const
-{
-    __GUT_UNLOCK_FD(m_fd);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // class dir_reader
-
-dir_reader::dir_reader(dir_reader&& other) noexcept
-    : m_p_scanner(std::exchange(other.m_p_scanner, nullptr))
-{}
-
-dir_reader& dir_reader::operator=(dir_reader&& other) noexcept
-{
-    if (this != &other) {
-        close();
-        m_p_scanner = std::exchange(other.m_p_scanner, nullptr);
-    }
-    return *this;
-}
 
 void dir_reader::close() noexcept
 {
@@ -200,21 +182,6 @@ void dir_reader::close() noexcept
         ::closedir(m_p_scanner);
         m_p_scanner = nullptr;
     }
-}
-
-bool dir_reader::opendir(const char* p_path) noexcept
-{
-    if (is_opened()) {
-        return false;
-    }
-
-    m_p_scanner = ::opendir(p_path);
-    if (! m_p_scanner) {
-        return false;
-    }
-
-    ::fcntl(dirfd(), F_SETFD, FD_CLOEXEC);
-    return true;
 }
 
 bool dir_reader::opendir(int fd) noexcept
@@ -261,13 +228,6 @@ struct ::dirent* dir_reader::readdir() const noexcept
     }
 
     return p_ent;
-}
-
-void dir_reader::rewinddir() const noexcept
-{
-    if (is_opened()) {
-        ::rewinddir(m_p_scanner);
-    }
 }
 
 } // namespace details

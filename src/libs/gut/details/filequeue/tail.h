@@ -39,32 +39,55 @@ namespace gut {
 namespace details {
 namespace fq {
 
-class cleaner;
-
+/**
+ *  \brief  Thread-safe chronological reader and K-way merger for the queue's stage.
+ *
+ *  \details    Monitors the stage nook directory via Linux ::inotify and maintains a
+ *      bounded sliding window of active primary_tier instances, backed by a full sorted
+ *      pool of discovered primary directory names.
+ *
+ *      Merges items across active tiers in strict chronological order, automatically
+ *      evicts exhausted subdirectories to cleaner, and blocks efficiently when the
+ *      queue is empty until new filesystem events arrive or the wait timeout expires.
+ *
+ *  \note   All public member functions are **thread-safe**.
+ */
 class tail final
 {
 public:
     using cleaner_ptr_t = std::shared_ptr<cleaner>;
 
 public:
-    tail(const directory& nook_dir, const cleaner_ptr_t& p_cleaner, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
+    /// \brief  Constructs a reading tail bound to the stage nook directory.
+    /// \param  nook_dir - absolute path to the target stage directory.
+    /// \param  p_cleaner - shared cleaner instance for removing exhausted rotation directories.
+    /// \param  p_logger - the logging handler pointer.
+    /// \param  is_stop_fn - a functor for interrupting operations when an application shuts down.
+    tail(const directory& nook_dir, const cleaner_ptr_t& p_cleaner, const logging_handler::ptr& p_logger,
+         const std::function<bool()>& is_stop_fn);
 
+    /// \brief  Unregisters filesystem watches and releases all held directory handles.
     ~tail();
 
-    /// \brief  Retrieves the next item from the disk-based queue.
-    /// \param  filename - the name of the discovered task file.
-    /// \param  p_dir - a pointer to the physical directory containing the file.
-    /// \return true if an item was successfully retrieved and is ready for processing overwise false.
+    /// \brief  Retrieves the oldest available item from the disk-based queue.
+    /// \param  filename - output string populated with the name of the discovered task file.
+    /// \param  p_dir - output pointer populated with the open directory handle containing file.
+    /// \param  wait_ms - maximum time to wait for a new item in milliseconds (0 for non-blocking poll).
+    /// \return true if an item was successfully retrieved; false otherwise.
     bool get(std::string& filename, tmp_dir_ptr_t& p_dir, size_t wait_ms);
 
+    /// \brief  Initializes ::inotify monitoring on the root directory and loads existing tiers.
+    /// \return true if the watch was registered and initial state loaded; false on error.
     bool start();
-
-private:
-    bool reload();
 
 private:
     class primary_tier;
     using primary_tier_ptr_t = std::shared_ptr<primary_tier>;
+
+private:
+    /// \brief Rescans nook directory to recover from ::inotify queue overflows (IN_Q_OVERFLOW)
+    ///     and refills the sliding window of active primary tiers.
+    bool reload();
 
 private:
     const directory& m_nook_dir;

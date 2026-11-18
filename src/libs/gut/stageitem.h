@@ -47,10 +47,33 @@ class stagequeue;
 /**
  *  \brief  Transactional item of a file queue.
  *
- *  Provides atomic management of an event's lifecycle.
+ *  \details    An item encapsulates an open file descriptor locked exclusively inside
+ *      the 'proc' stage. It guarantees atomic state transitions via POSIX 'renameat'.
  *
- *  \warning    An item is not thread-safe. A single item object must be processed
- *      by only one thread at any given time.
+ *      If an item instance is destroyed without an explicit call to the commit() or
+ *      rollback() methods, it will remain in the 'proc' directory.
+ *
+ *  Example usage
+ *  \code{.cpp}
+ *  // Writing data to a new item
+ *  if (stageitem::ptr p_item = input_queue->create()) {
+ *      const std::string payload = "Hello, FileQueue!";
+ *      if (p_item->write(payload.data(), payload.size(), 0) == static_cast<ssize_t>(payload.size())) {
+ *          p_item->commit();
+ *      }
+ *  }
+ *
+ *  // Reading data via memory mapping
+ *  if (stageitem::ptr p_item = output_queue->pop(500)) {
+ *      if (const void* ptr = p_item->map()) {
+ *          // Process r_item->size() bytes at ptr...
+ *          r_item->commit();
+ *      }
+ *  }
+ *  \endcode
+ *
+ *  \warning    Individual item instances are **not thread-safe**. Do not share a
+ *      single item across multiple threads without external synchronization.
  */
 class stageitem final
 {
@@ -60,37 +83,61 @@ public:
 public:
     ~stageitem();
 
-    /// \brief  Commits the processing or creation of an element.
+    /// \brief  Commits the item and moves it to the target output stage.
     /// \return true if the element was successfully committed, otherwise false.
-    /// \details    Atomically moves a file from the working directory to the target
-    ///     output directory and releases the resources being used. Following a
-    //      successful call, the object becomes inactive.
     bool commit();
 
+    /// \brief  Checks whether the item still holds an active.
+    /// \return true if the item is alive and has not been removed; false otherwise.
     bool is_alive() const;
 
+    /// \brief  Checks whether the item's file is currently mapped into memory.
+    /// \return true if a memory mapping created by map() is active; false otherwise.
     bool is_mapped() const;
 
+    /// \brief  Maps the entire contents of the item's file into read-only virtual memory.
+    /// \return Pointer to the mapped memory region on success, or nullptr if 'mmap()' failed.
     const void* map();
 
+    /// \brief  Maps a specific byte range of the item's file into read-only virtual memory.
+    /// \param  offset - starting byte offset within the file.
+    /// \param  size - number of bytes to map.
+    /// \return Pointer to the mapped memory region on success, or nullptr if 'mmap()' failed.
     const void* map(const off64_t offset, const size_t size);
 
+    /// \brief  Reads up to size bytes from the item's file starting at offset.
+    /// \param  offset - byte offset in the file from which to begin reading.
+    /// \param  p_buffer - destination buffer to receive the data (must not be nullptr).
+    /// \param  size - maximum number of bytes to read.
+    /// \return Number of bytes actually read, or -1 on error.
     ssize_t read(const off64_t offset, char* p_buffer, const size_t size);
 
+    /// \brief  Permanently deletes the item's underlying file from disk.
+    /// \return true if the file was successfully removed; false on error.
     bool remove();
 
     /// \brief  Rollbacks the processing of an element.
-    /// \return true if the element was successfully committed, otherwise false.
-    /// \details    Returns a file from the working directory back to the incoming
-    ///     directory of the current queue, making it available for retrieval once again.
+    /// \return true if the element was successfully rolled back, otherwise false.
     bool rollback();
 
+    /// \brief  Returns the current size of the item's file in bytes.
+    /// \return File size in bytes on success, or -1 if the item is not alive or 'fstat()' failed.
     ssize_t size() const;
 
+    /// \brief  Resizes the item's file to exactly size bytes.
+    /// \param  size - desired file size in bytes.
+    /// \return true if the file was successfully resized; false on error.
     bool truncate(const size_t size);
 
+    /// \brief  Releases the active memory mapping created by map().
+    /// \see map(), is_mapped()
     void unmap();
 
+    /// \brief  Writes size bytes from p_data into the item's file starting at offset.
+    /// \param  p_data - the source data buffer (must not be nullptr).
+    /// \param  size - number of bytes to write.
+    /// \param  offset - byte offset in the file at which to begin writing.
+    /// \return Number of bytes actually written on success, or -1 on error.
     ssize_t write(const char* p_data, const ssize_t size, const off64_t offset);
 
 private:

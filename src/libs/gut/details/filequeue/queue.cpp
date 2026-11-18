@@ -120,6 +120,11 @@ bool sink_queue::open()
     return open_queue(m_nook_dir, m_p_logger);
 }
 
+/**
+ *  \details    Uses ::renameat() to transfer the underlying file into the current
+ *      active directory of m_queue_head and updates the entry's parent directory
+ *      reference.
+ */
 bool sink_queue::push_item(entry& e)
 {
     return push_queue_item(e, m_queue_head);
@@ -165,6 +170,11 @@ bool queue::open()
     return true;
 }
 
+/**
+ *  \details    Retrieves the next chronological file via m_queue_tail, acquires an
+ *      exclusive lock, and transfers it into target using ::renameat(). Periodically
+ *      triggers incremental cleaner steps.
+ */
 template<typename TTargetQueue>
 bool queue::pop_item(entry& e, TTargetQueue& target, const size_t wait_ms)
 {

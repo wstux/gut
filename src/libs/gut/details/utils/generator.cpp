@@ -37,9 +37,9 @@ namespace details {
 namespace {
 
 /**
- *  \brief  Encodes an integer value into a fixed-length Base64 string.
+ *  \brief  Encodes an integer value into a fixed-length ASCII-sorted Base64 string.
  *  \param  value - unique 64-bit token to encode.
- *  \param  p_buffer - pointer to the destination character array.
+ *  \param  p_buffer - the destination character buffer.
  *  \param  length - required length of the resulting string.
  *
  *  \details    The buffer is populated from right to left, starting with the least
@@ -112,8 +112,6 @@ uint64_t time_token()
 
 void generate_name(char* p_buffer, size_t size)
 {
-    assert(size >= gk_name_buffer_size);
-
     if (size < gk_name_length) {
         if (size > 0) {
             *p_buffer = '\0';

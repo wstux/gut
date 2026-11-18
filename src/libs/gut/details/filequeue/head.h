@@ -37,14 +37,36 @@ namespace gut {
 namespace details {
 namespace fq {
 
+/**
+ *  \brief  Thread-safe directory writer and rotator for incoming queue items.
+ *
+ *  \details    Manages the active two-level directory hierarchy (primary / active
+ *      directories) where new items are created or moved into. Monitors directory
+ *      metadata size and automatically rotates active_dir (and primary_dir when
+ *      needed) once the 32 KB directory threshold is reached, preventing linear
+ *      lookup degradation in Linux filesystems.
+ *
+ *      Holds a shared advisory lock (LOCK_SH) on active directories to prevent
+ *      cleaner from prematurely deleting directories currently in use by writers.
+ *
+ *  \note   All public member functions are **thread-safe**.
+ */
 class head final
 {
 public:
+    /// \brief  Constructs a writing head bound to the stage nook directory.
+    /// \param  nook_dir - absolute path to the target stage directory.
+    /// \param  p_logger - a pointer to a logging handler.
+    /// \param  is_stop_fn - a functor for interrupting operations when an application shuts down.
     head(const directory& nook_dir, const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn);
 
+    /// \brief  Returns the currently active subdirectory for writing, rotating if necessary.
+    /// \param  force_rotation - if true, forces immediate creation of a new active directory.
+    /// \return An opened and shared-locked active directory, or nullptr if directory creation failed.
     tmp_dir_ptr_t get_active_dir(bool force_rotation = false);
 
 private:
+    /// \brief  Performs thread-safe rotation of m_p_active_dir and, if full, m_p_primary_dir.
     tmp_dir_ptr_t rotate(bool force_rotation);
 
 private:

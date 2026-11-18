@@ -40,12 +40,30 @@ namespace details {
 namespace fq {
 namespace {
 
+/**
+ *  \brief  Leaf-level directory watcher and sorted file cache for a single active subdirectory.
+ *
+ *  \details    Represents the lowest directory level (active directories) in the two-tier
+ *      rotation hierarchy. Monitors incoming regular files via ::inotify (IN_CREATE | IN_MOVED_TO)
+ *      and maintains an in-memory lexicographically sorted set of available item filenames,
+ *      eliminating repeated directory scans during consumption.
+ *
+ *  \warning    Class instances are **not thread-safe** and are synchronized externally
+ *      by mutex. Also note that move operations are deleted/unsafe if watch desctriptor
+ *      opened because the ::inotify callback captures this.
+ */
 class active_tier final
 {
 public:
     using ptr = std::unique_ptr<active_tier>;
 
 public:
+    /// \brief  Constructs an active tier watcher and loads all existing files from nook directory.
+    /// \param  nook_dir - the nook directory.
+    /// \param  p_parent_dir - the enclosing primary directory.
+    /// \param  p_dir - the opened active directory to monitor.
+    /// \param  notifier - the shared ::inotify dispatcher.
+    /// \param  p_logger - a pointer to a logging handler.
     active_tier(const directory& nook_dir, const tmp_dir::ptr& p_parent_dir, const tmp_dir::ptr& p_dir,
                 notifier& notifier, const logging_handler::ptr& p_logger)
         : m_p_dir(p_dir)
@@ -76,6 +94,7 @@ public:
         reload();
     }
 
+    /// \brief  Unregisters the ::inotify watch descriptor if active.
     ~active_tier()
     {
         if (m_wd >= 0) {
@@ -86,13 +105,18 @@ public:
 
     active_tier(const active_tier&) = delete;
     active_tier& operator=(const active_tier&) = delete;
-    active_tier(active_tier&&) noexcept = default;
-    active_tier& operator=(active_tier&&) noexcept = default;
+    active_tier(active_tier&&) noexcept = delete;
+    active_tier& operator=(active_tier&&) noexcept = delete;
 
+    /// \brief  Returns the underlying opened directory handle.
+    /// \return Current active directory.
     const tmp_dir::ptr& dir() const { return m_p_dir; }
 
+    /// \brief  Checks whether any unconsumed filenames remain in the in-memory cache.
+    /// \return true if the in-memory cache is empty; false otherwise.
     bool empty() const { return m_files.empty(); }
 
+    /// \brief  Removes the oldest (lexicographically smallest) filename from the cache.
     void pop()
     {
         if (! m_files.empty()) {
@@ -100,9 +124,12 @@ public:
         }
     }
 
+    /// \brief  Returns the oldest available filename in this directory without removing it.
+    /// \return Reference to the first filename in the in-memory cache.
     const std::string& top() const { return *m_files.begin(); }
 
 private:
+    /// \brief Scans active directory and populates in-memory cache with all regular filenames.
     void reload()
     {
         dir_reader scanner;
@@ -144,9 +171,26 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 // class tail::primary_tier
 
+/**
+ *  \brief  Mid-level directory manager performing K-way merge across bounded active
+ *      subdirectories.
+ *
+ *  \details    Represents a first-level rotation directory. Watches for newly created
+ *      active subdirectories via ::inotify, stores all discovered subdirectory names in
+ *      the in-memory cache, and keeps at most limit (16) active instances open
+ *      simultaneously in a sliding window to conserve file descriptors.
+ *
+ *      On each get() call, merges the heads of all open active tier instances in
+ *      chronological order and evicts exhausted directories to cleaner.
+ */
 class tail::primary_tier final
 {
 public:
+    /// \brief  Constructs a primary tier manager and scans existing active subdirectories.
+    /// \param  parent_dir - reference to the parent directory.
+    /// \param  p_dir - the opened primary directory.
+    /// \param  notifier - the shared ::inotify dispatcher.
+    /// \param  p_logger - a pointer to a logging handler.
     primary_tier(const directory& parent_dir, const tmp_dir::ptr& p_dir, notifier& notifier, const logging_handler::ptr& p_logger)
         : m_parent_dir(parent_dir)
         , m_p_logger(p_logger)
@@ -176,6 +220,7 @@ public:
         reload();
     }
 
+    /// \brief  Unregisters the ::inotify watch descriptor and destroys all managed active instances.
     ~primary_tier()
     {
         if (m_wd >= 0) {
@@ -184,10 +229,27 @@ public:
         }
     }
 
+    primary_tier(const primary_tier&) = delete;
+    primary_tier& operator=(const primary_tier&) = delete;
+    primary_tier(primary_tier&&) noexcept = delete;
+    primary_tier& operator=(primary_tier&&) noexcept = delete;
+
+    /// \brief  Returns the underlying opened primary directory handle.
+    /// \return Current primary directory.
     const tmp_dir::ptr& dir() const { return m_p_dir; }
 
+    /// \brief  Checks whether both the pending subdirectory pool and all active tiers are empty.
+    /// \return true if no subdirectories or files remain in this primary tier; false otherwise.
     bool empty() const { return m_active_pool.empty() && m_active_tiers.empty(); }
 
+    /// \brief  Retrieves the oldest available item across all managed active subdirectories.
+    /// \param  filename - output string populated with the selected item filename.
+    /// \param  p_dir - output pointer populated with the open active directory containing file.
+    /// \param  p_cleaner - shared cleaner instance for removing exhausted rotation directories.
+    /// \return true if an item was retrieved; false if all active tiers are currently empty.
+    /// \details Refills the active tiers sliding window from pool up to limit, performs a K-way
+    ///     merge across top() filenames of open tiers, pops the winning entry, and evicts any
+    ///     exhausted active directory to cleaner if not locked by a writer.
     bool get(std::string& filename, tmp_dir::ptr& p_dir, const cleaner::ptr& p_cleaner)
     {
         constexpr size_t k_tiers_limit = 16;
@@ -234,6 +296,7 @@ public:
     }
 
 private:
+    /// \brief  Scans current primary directory and populates in-memory cache with all subdirectory names.
     void reload()
     {
         dir_reader scanner;
@@ -283,6 +346,12 @@ tail::~tail()
     }
 }
 
+/**
+ *  \details    Queries active primary tiers in chronological order. If no items are
+ *      currently cached, drains pending ::inotify events or sleeps up to wait_ms
+ *      milliseconds waiting for new files or subdirectories to appear. Exhausted tiers
+ *      are evicted to m_p_cleaner and replaced from m_primary_pool.
+ */
 bool tail::get(std::string& filename, tmp_dir::ptr& p_dir, size_t wait_ms)
 {
     assert(m_nook_dir.is_open());
@@ -362,6 +431,10 @@ bool tail::reload()
     return false;
 }
 
+/**
+ *  \details Registers a watch on m_nook_dir for subdirectory creation/moves and populates
+ *      the initial m_primary_pool and active m_primary_tiers sliding window.
+ */
 bool tail::start()
 {
     assert(m_root_wd == -1);

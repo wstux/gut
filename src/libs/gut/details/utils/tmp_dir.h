@@ -36,43 +36,82 @@ namespace wstux {
 namespace gut {
 namespace details {
 
+/**
+ *  \brief  RAII handle representing a rotated temporary subdirectory inside a queue stage.
+ *
+ *  \details    Encapsulates a directory entry with a fixed-length Base64 name opened
+ *      relative to a parent directory file descriptor (::openat). Holds an optional
+ *      pointer to its parent to guarantee that parent file descriptors remain valid
+ *      throughout the lifetime of nested child directories.
+ *
+ *      Supports non-blocking POSIX advisory locking (::flock) and atomic removal via ::unlinkat.
+ */
 class tmp_dir final
 {
 public:
     using ptr = std::shared_ptr<tmp_dir>;
 
 public:
+    /// \brief  Creates a new temporary directory descriptor relative to a parent directory descriptor.
+    /// \param  parent_fd - open file descriptor of the parent directory (must remain valid until opened).
     explicit tmp_dir(int parent_fd);
 
+    /// \brief  Creates a new temporary directory descriptor relative to a managed parent directory.
+    /// \param  p_parent - the parent directory (keeps parent descriptor alive).
     explicit tmp_dir(const ptr& p_parent);
 
+    /// \brief  Creates a new temporary directory descriptor relative to a parent directory descriptor.
+    /// \param  name - directory name.
+    /// \param  parent_fd - open file descriptor of the parent directory (must remain valid until opened).
     tmp_dir(const std::string_view& name, int parent_fd);
 
+    /// \brief  Creates a new temporary directory descriptor relative to a managed parent directory.
+    /// \param  name - directory name.
+    /// \param  p_parent - the parent directory (keeps parent descriptor alive).
     tmp_dir(const std::string_view& name, const ptr& p_parent);
 
+    /// \brief  Closes the underlying directory file descriptor if open and releases the parent reference.
     ~tmp_dir();
 
-    void close();
+    /// \brief  Closes the directory file descriptor and resets it to -1.
+    void close() noexcept;
 
-    bool create();
+    /// \brief  Creates the directory on disk relative to its parent (::mkdirat) and opens it.
+    /// \return true if the directory was created and opened; false on error.
+    bool create() noexcept;
 
-    int fd() const { return m_fd; }
+    /// \brief  Returns the underlying POSIX file descriptor of the opened directory.
+    /// \return Valid directory file descriptor, or -1 if not open.
+    int fd() const noexcept { return m_fd; }
 
-    bool is_open() const;
+    /// \brief  Checks whether the directory currently holds an open file descriptor.
+    /// \return true if directory file descriptor more then -1; false otherwise.
+    bool is_open() const noexcept;
 
-    bool lock(bool is_exclusive) const;
+    /// \brief  Acquires a non-blocking advisory lock (::flock) on the directory.
+    /// \param  is_exclusive - exclusive (LOCK_EX | LOCK_NB) or shared (LOCK_SH | LOCK_NB) lock.
+    /// \return true if the lock was acquired; false on error.
+    bool lock(bool is_exclusive) const noexcept;
 
-    ::time_t mtime() const;
+    /// \brief  Queries the last modification timestamp of the directory via ::fstat64().
+    /// \return Last modification time in seconds since the Epoch, or 0 on error.
+    ::time_t mtime() const noexcept;
 
-    std::string_view name() const { return m_name; }
+    /// \brief  Returns the fixed-length Base64 name of this directory.
+    /// \return A string view of name.
+    std::string_view name() const noexcept { return m_name; }
 
-    bool open();
+    /// \brief  Opens the existing directory on disk relative to its parent via ::openat().
+    /// \return true if opened successfully; false on error.
+    bool open() noexcept;
 
-    bool remove();
+    /// \brief  Unlinks the empty directory from its parent via ::unlinkat.
+    /// \return true if removed or already absent (ENOENT); false on error.
+    bool remove() noexcept;
 
-    size_t size() const;
-
-    void unlock() const;
+    /// \brief  Returns the current metadata size of the directory in bytes via ::fstat64().
+    /// \return Directory size in bytes, or 0 on error.
+    size_t size() const noexcept;
 
 private:
     const ptr m_p_parent;
@@ -82,34 +121,45 @@ private:
     char m_name[gk_name_buffer_size];
 };
 
+/**
+ *  \brief  Movable RAII wrapper around POSIX directory streams.
+ *
+ *  \details    Provides safe, leak-free iteration over directory entries using ::opendir(),
+ *      ::fdopendir(), and ::readdir().
+ */
 class dir_reader final
 {
 public:
+    /// \brief  Constructs an unopened directory reader.
     dir_reader() = default;
 
     dir_reader(const dir_reader&) = delete;
     dir_reader& operator=(const dir_reader&) = delete;
+    dir_reader(dir_reader&& other) noexcept = delete;
+    dir_reader& operator=(dir_reader&& other) noexcept = delete;
 
-    dir_reader(dir_reader&& other) noexcept;
-    dir_reader& operator=(dir_reader&& other) noexcept;
-
+    /// \brief  Closes the underlying directory stream if open.
     ~dir_reader() { close(); }
 
+    /// \brief  Closes the active directory stream.
     void close() noexcept;
 
-    int dirfd() const { return m_p_scanner ? ::dirfd(m_p_scanner) : -1; }
+    /// \brief  Returns the underlying file descriptor associated with the open directory stream.
+    /// \return Directory file descriptor via ::dirfd(), or -1 if not opened.
+    int dirfd() const noexcept { return m_p_scanner ? ::dirfd(m_p_scanner) : -1; }
 
-    bool is_opened() const { return m_p_scanner != nullptr; }
+    /// \brief  Checks whether a directory stream is currently open.
+    /// \return true if open; false otherwise.
+    bool is_opened() const noexcept { return m_p_scanner != nullptr; }
 
-    bool opendir(const char* p_path) noexcept;
-
+    /// \brief  Opens a directory stream from an existing open directory file descriptor.
+    /// \param  fd - valid open directory file descriptor.
+    /// \return true if opened successfully; false on error.
     bool opendir(int fd) noexcept;
 
-    bool opendir(const tmp_dir::ptr& p_parent) noexcept { return opendir(p_parent->fd()); }
-
+    /// \brief  Reads the next entry from the open directory stream.
+    /// \return Pointer to the next ::dirent, or nullptr on end-of-stream or error.
     struct ::dirent* readdir() const noexcept;
-
-    void rewinddir() const noexcept;
 
 private:
     DIR* m_p_scanner = nullptr;

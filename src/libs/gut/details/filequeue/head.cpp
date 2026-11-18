@@ -87,6 +87,11 @@ head::head(const directory& nook_dir, const logging_handler::ptr& p_logger, cons
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
 }
 
+/**
+ *  \details    Checks if m_p_active_dir is initialized, valid, and below the metadata
+ *      size threshold. If rotation is required or force_rotation is true, creates and
+ *      locks a new chronological subdirectory.
+ */
 tmp_dir::ptr head::get_active_dir(bool force_rotation)
 {
     assert(m_nook_dir.is_open());

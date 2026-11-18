@@ -89,6 +89,11 @@ stagequeue::stagequeue(const std::string_view& path, const std::string_view& out
     static_assert(std::is_same<details::fq::cleaner_ptr_t, details::fq::cleaner::ptr>::value);
 }
 
+/**
+ *  \details    Removes abandoned empty rotation directories across 'input', 'output' and
+ *      purges unlocked stale files in 'proc', and deletes any malformed entries whose
+ *      names do not conform to internal naming rules.
+ */
 bool stagequeue::cleanup_garbage(int secs_offset, const std::string_view& path,
                                  const std::function<bool()>& is_stop_fn, const std::string_view& out_path)
 {
@@ -103,6 +108,12 @@ bool stagequeue::cleanup_garbage(int secs_offset, const std::string_view& path,
     return is_ok;
 }
 
+/**
+ *  \details    The newly created file is exclusively locked and invisible to consumers
+ *      until item::commit() or item::rollback() is called. If an item instance is
+ *      destroyed without an explicit call to the item::commit() or item::rollback(),
+ *      it will remain in the 'proc' directory.
+ */
 stagequeue::item::ptr stagequeue::create()
 {
     item::ptr p_item = std::make_unique<item>(m_output, m_input, std::as_const(m_p_logger));
@@ -116,6 +127,10 @@ stagequeue::item::ptr stagequeue::create()
     return p_item;
 }
 
+/**
+ *  \details    Creates a directory structure ('input', 'proc' and 'output' subdirectories)
+ *      at the specified path, configures access permissions, and opens them.
+ */
 stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
 {
     if (path.empty()) {
@@ -135,6 +150,14 @@ stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std
     return p_queue;
 }
 
+/**
+ *  \details    Creates a directory structure ('input', 'proc' and 'output' subdirectories)
+ *      at the specified path, configures access permissions, and opens them.
+ *
+ *      Instead of a local output directory, it uses the input directory of a queue located
+ *      at the provided path. Calling item::commit() on items in this queue will deliver
+ *      them directly into the input pool of the target queue.
+ */
 stagequeue::ptr stagequeue::create_queue(const std::string_view& path, const std::string_view& out_path,
                                          const std::function<bool()>& is_stop_fn, logging_handler::ptr p_logger)
 {
@@ -186,6 +209,15 @@ bool stagequeue::open()
     return true;
 }
 
+/**
+ *  \details    Atomically moves a file from input directory to the working directory
+ *      and acquires an exclusive lock on the file. If the incoming queue is empty, the
+ *      current thread blocks until a new file appears or a timeout expires.
+ *
+ * \warning     The caller **must** explicitly call item::commit() or item::rollback()
+ *      when done. If an item instance is destroyed without an explicit call to the
+ *      item::commit() or item::rollback(), it will remain in the 'proc' directory.
+ */
 stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
 {
     item::ptr p_item = std::make_unique<item>(m_output, m_input, std::as_const(m_p_logger));
@@ -199,6 +231,13 @@ stagequeue::item::ptr stagequeue::pop(size_t wait_ms)
     return p_item;
 }
 
+/**
+ *  \details    Scans the proc directory for unlocked items left over after a crash or
+ *      improper shutdown. Each found item is passed to rollback_fn. If the predicate
+ *      returns true, the item is moved back to the input directory. Otherwise, it is
+ *      moved to the dead directory (created on demand) for further inspection and
+ *      analysis.
+ */
 bool stagequeue::rollback(const std::string_view& path, const std::function<bool(item::ptr&)>& rollback_fn,
                           const logging_handler::ptr& p_logger, const std::function<bool()>& is_stop_fn)
 {
@@ -209,8 +248,8 @@ bool stagequeue::rollback(const std::string_view& path, const std::function<bool
 
     details::fq::cleaner::ptr p_cleaner = std::make_shared<details::fq::cleaner>(is_stop_fn);
 
-    details::fq::sink_queue input(make_queue_path(path, "input"), p_logger, is_stop_fn);
-    details::fq::queue dead(make_queue_path(path, "dead"), p_cleaner, p_logger, is_stop_fn);
+    details::fq::queue input(make_queue_path(path, "input"), p_cleaner, p_logger, is_stop_fn);
+    details::fq::sink_queue dead(make_queue_path(path, "dead"), p_logger, is_stop_fn);
     details::fq::queue proc(make_queue_path(path, "proc"), p_cleaner, p_logger, is_stop_fn);
 
     if (! input.open() || ! proc.open() || ! dead.open()) {
@@ -220,19 +259,19 @@ bool stagequeue::rollback(const std::string_view& path, const std::function<bool
 
     bool all_rolled_back = true;
     while (! is_stop_fn()) {
-        item::ptr p_item = std::make_unique<item>(input, dead, p_logger);
+        item::ptr p_item = std::make_unique<item>(dead, input, p_logger);
 
         if (! proc.pop_item(p_item->m_entry, proc, 0)) {
             break;
         }
 
         if (rollback_fn(p_item)) {
-            if (! p_item->commit()) {
+            if (! p_item->rollback()) {
                 GUT_LOG_ERROR(p_logger, "Failed to move item %s to input directory", p_item->m_entry.name().data());
                 all_rolled_back = false;
             }
         } else {
-            if (! p_item->rollback()) {
+            if (! p_item->commit()) {
                 GUT_LOG_ERROR(p_logger, "Failed to move item %s to dead directory", p_item->m_entry.name().data());
             }
             all_rolled_back = false;
