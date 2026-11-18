@@ -248,8 +248,8 @@ bool stagequeue::rollback(const std::string_view& path, const std::function<bool
 
     details::fq::cleaner::ptr p_cleaner = std::make_shared<details::fq::cleaner>(is_stop_fn);
 
-    details::fq::sink_queue input(make_queue_path(path, "input"), p_logger, is_stop_fn);
-    details::fq::queue dead(make_queue_path(path, "dead"), p_cleaner, p_logger, is_stop_fn);
+    details::fq::queue input(make_queue_path(path, "input"), p_cleaner, p_logger, is_stop_fn);
+    details::fq::sink_queue dead(make_queue_path(path, "dead"), p_logger, is_stop_fn);
     details::fq::queue proc(make_queue_path(path, "proc"), p_cleaner, p_logger, is_stop_fn);
 
     if (! input.open() || ! proc.open() || ! dead.open()) {
@@ -259,19 +259,19 @@ bool stagequeue::rollback(const std::string_view& path, const std::function<bool
 
     bool all_rolled_back = true;
     while (! is_stop_fn()) {
-        item::ptr p_item = std::make_unique<item>(input, dead, p_logger);
+        item::ptr p_item = std::make_unique<item>(dead, input, p_logger);
 
         if (! proc.pop_item(p_item->m_entry, proc, 0)) {
             break;
         }
 
         if (rollback_fn(p_item)) {
-            if (! p_item->commit()) {
+            if (! p_item->rollback()) {
                 GUT_LOG_ERROR(p_logger, "Failed to move item %s to input directory", p_item->m_entry.name().data());
                 all_rolled_back = false;
             }
         } else {
-            if (! p_item->rollback()) {
+            if (! p_item->commit()) {
                 GUT_LOG_ERROR(p_logger, "Failed to move item %s to dead directory", p_item->m_entry.name().data());
             }
             all_rolled_back = false;
