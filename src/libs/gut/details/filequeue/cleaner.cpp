@@ -141,7 +141,7 @@ bool cleanup_active_dir(const tmp_dir::ptr& p_parent, bool remove_files, int fil
     }
 
     dir_reader reader;
-    if (! reader.opendir(p_parent)) {
+    if (! reader.opendir(p_parent->fd())) {
         return (errno == ENOENT);
     }
 
@@ -179,7 +179,7 @@ bool cleanup_primary_dir(cleaner& clnr, const tmp_dir::ptr& p_parent, bool remov
     }
 
     dir_reader reader;
-    if (! reader.opendir(p_parent)) {
+    if (! reader.opendir(p_parent->fd())) {
         return (errno == ENOENT);
     }
 

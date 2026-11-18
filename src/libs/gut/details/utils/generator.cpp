@@ -112,8 +112,6 @@ uint64_t time_token()
 
 void generate_name(char* p_buffer, size_t size)
 {
-    assert(size >= gk_name_buffer_size);
-
     if (size < gk_name_length) {
         if (size > 0) {
             *p_buffer = '\0';

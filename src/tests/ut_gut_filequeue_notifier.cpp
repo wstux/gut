@@ -74,6 +74,13 @@ TEST_F(notifier_fixture, add_remove_watch)
     EXPECT_NO_THROW(n.remove_watch(wd));
 }
 
+TEST_F(notifier_fixture, add_watch_empty_path)
+{
+    details::notifier n;
+    const int wd = n.add_watch("", IN_CREATE | IN_MOVED_TO, [](uint32_t, const std::string_view&) {});
+    ASSERT_TRUE(wd == -1);
+}
+
 TEST_F(notifier_fixture, non_existent_path)
 {
     details::notifier n;
