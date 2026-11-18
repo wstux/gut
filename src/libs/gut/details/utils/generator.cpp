@@ -37,9 +37,9 @@ namespace details {
 namespace {
 
 /**
- *  \brief  Encodes an integer value into a fixed-length Base64 string.
+ *  \brief  Encodes an integer value into a fixed-length ASCII-sorted Base64 string.
  *  \param  value - unique 64-bit token to encode.
- *  \param  p_buffer - pointer to the destination character array.
+ *  \param  p_buffer - the destination character buffer.
  *  \param  length - required length of the resulting string.
  *
  *  \details    The buffer is populated from right to left, starting with the least

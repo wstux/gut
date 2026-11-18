@@ -34,11 +34,27 @@ namespace wstux {
 namespace gut {
 namespace details {
 
+/**
+ *  \brief  Evaluates whether logging is enabled for level on the given handler.
+ *  \param  p_hdlr - the logging handler (may be nullptr).
+ *  \param  lvl - severity level to query.
+ *  \return true if handler is valid and can_log_fn returns true; false otherwise.
+ */
 inline bool can_log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl)
 {
     return p_hdlr && p_hdlr->can_log_fn(p_hdlr->p_this, lvl);
 }
 
+/**
+ *  \brief  Formats a printf-style message into a stack buffer and forwards it to log_fn.
+ *  \param  p_hdlr - the logging handler (must have non-null log_fn).
+ *  \param  lvl - severity level of the message.
+ *  \param  p_fmt - printf-compatible format string.
+ *  \param  ... - variable arguments matching format.
+ *
+ *  \note   Formatted output is truncated to 255 characters plus null terminator to avoid
+ *      heap allocations on the logging path.
+ */
 inline void log(const logging_handler::ptr& p_hdlr, logging_handler::severity_level lvl, const char* p_fmt, ...)
 {
     char buffer[256];
@@ -55,6 +71,9 @@ inline void log(const logging_handler::ptr& p_hdlr, logging_handler::severity_le
 } // namespace gut
 } // namespace wstux
 
+/**
+ * \brief Internal helper macro that checks can_log() before formatting arguments.
+ */
 #define _GUT_LOG(logger, level, fmt, ...)                                       \
     do {                                                                        \
         if (::wstux::gut::details::can_log(logger, level)) {                    \

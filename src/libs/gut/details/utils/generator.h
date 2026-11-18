@@ -32,7 +32,9 @@ namespace gut {
 namespace details {
 
 /**
- *  \brief  Generating unique chronological name.
+ *  \brief  Generates a unique, chronologically sortable Base64 name.
+ *  \param  p_buffer - the destination character buffer (must not be nullptr).
+ *  \param  size - capacity of buffer in bytes.
  *
  *  \details    This algorithm generates compact, fixed-length names that are strictly
  *      time-ordered (lexicographically sortable) and safe from collisions in highly

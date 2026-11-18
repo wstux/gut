@@ -220,6 +220,10 @@ cleaner::cleaner(std::function<bool()> is_stop_fn)
     static_assert(std::is_same<tmp_dir_ptr_t, tmp_dir::ptr>::value);
 }
 
+/**
+ *  \details    Iterates up to the initial queue size, invoking step() on each entry
+ *      until the queue is empty, a full pass completes, or is_stop_fn signals shutdown.
+ */
 bool cleaner::cleanup(int dir_gap_seconds, int file_gap_seconds)
 {
     size_t dirs_count = 0;
@@ -238,6 +242,13 @@ bool cleaner::cleanup(int dir_gap_seconds, int file_gap_seconds)
     return m_dir_queue.empty();
 }
 
+/**
+ *  \details Scans nook_path and removes malformed entries (names not matching internal
+ *      length rules), stray root files, and abandoned empty rotation trees.
+ *
+ *      - When remove_files is false, valid message files are preserved.
+ *      - When remove_files is true, unlocked files older than file_gap_seconds are purged.
+ */
 bool cleaner::cleanup(const std::string_view& nook_path, int dir_gap_seconds, int file_gap_seconds,
                       bool remove_files, const std::function<bool()>& is_stop_fn)
 {
@@ -394,6 +405,12 @@ bool cleaner::remove_file(dir_reader& reader, const char* name)
     return errno == ENOENT;
 }
 
+/**
+ *  \details    Pops a single directory from the front of m_dir_queue, verifies its age
+ *      against dir_gap_seconds, purges unlocked stale files inside it, and removes the
+ *      directory itself if empty and unreferenced (use_count() == 1). Otherwise,
+ *      re-queues it.
+ */
 bool cleaner::step(int dir_gap_seconds, int file_gap_seconds)
 {
     tmp_dir::ptr p_dir;

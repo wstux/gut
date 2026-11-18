@@ -30,13 +30,39 @@
 namespace wstux {
 namespace gut {
 
+/**
+ *  \brief  Callback-based adapter interface for routing internal library logs to an
+ *      external logger.
+ *
+ *  \details    Decouples **Gut File Queue** from any specific logging framework plain
+ *      function pointers and an opaque user context pointer.
+ *
+ *  Example usage
+ *  \code{.cpp}
+ *  wstux::gut::logging_handler::ptr p_logger =
+ *      std::make_unique<wstux::gut::logging_handler>();
+ *  p_logger->p_this = &my_logger_instance;
+ *  p_logger->can_log_fn =
+ *      [](void* ctx, wstux::gut::logging_handler::severity_level lvl) -> bool {
+ *          return static_cast<my_logger*>(ctx)->is_enabled(lvl);
+ *      };
+ *  p_logger->log_fn =
+ *      [](void* ctx, wstux::gut::logging_handler::severity_level lvl, const char* msg) {
+ *          static_cast<my_logger*>(ctx)->write(lvl, msg);
+ *      };
+ *
+ *  wstux::gut::stagequeue::ptr p_queue =
+ *      wstux::gut::stagequeue::create_queue("/var/spool/app/q", stop_fn, std::move(logger));
+ *  \endcode
+ *
+ *  \warning    Both can_log_fn and log_fn callbacks **must be thread-safe**, as multiple
+ *      producer and consumer threads may emit log messages concurrently.
+ */
 struct logging_handler
 {
     using ptr = std::unique_ptr<logging_handler>;
 
-    /**
-     *  \brief  Log message severity levels, analogous to syslog.
-     */
+    /// \brief  Log message severity levels, analogous to syslog.
     enum severity_level
     {
         emerg   = 0, //!< System is unusable.
@@ -51,8 +77,15 @@ struct logging_handler
     };
 
     /// \brief  Function signature to check if a specific logging level is enabled.
+    /// \param  p_this - user-supplied context pointer stored in logging_handler::p_this.
+    /// \param  lvl - severity level to query.
+    /// \return true if messages should be formatted and logged; false to skip formatting.
     using can_log_fn_t = bool (*)(void* p_this, severity_level lvl);
+
     /// \brief  Function signature to write a text message to the log.
+    /// \param  p_this - user-supplied context pointer stored in logging_handler::p_this.
+    /// \param  lvl - severity level of the message.
+    /// \param  p_msg - null-terminated formatted message string.
     using log_fn_t     = void (*)(void* p_this, severity_level lvl, const char* p_msg);
 
     /// \brief  Virtual destructor.
