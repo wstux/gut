@@ -115,3 +115,9 @@ int main()
     return 0;
 }
 ```
+
+## License
+
+&copy; 2026 Chistyakov Alexander.
+
+Open sourced under MIT license, the terms of which can be read here — [MIT License](http://opensource.org/licenses/MIT).
