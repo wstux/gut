@@ -26,7 +26,7 @@ include(utils/flag_utils)
 # Set compiler standard
 ################################################################################
 
-if (CMAKE_C_COMPILER AND NOT CMAKE_CXX_COMPILER)
+if (CMAKE_C_COMPILER)
     if (PROJECT_C_STANDARD)
         # Setting the C standard version from defined variable
         SetCStandard("${PROJECT_C_STANDARD}")
