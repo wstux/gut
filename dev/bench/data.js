@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795020563577,
+  "lastUpdate": 1795641888440,
   "repoUrl": "https://github.com/wstux/gut",
   "entries": {
     "Benchmark": [
@@ -744,6 +744,96 @@ window.BENCHMARK_DATA = {
             "value": 339.8549615805595,
             "unit": "ns/iter",
             "extra": "iterations: 2033606\ncpu: 339.82814763528387 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "wstux1@gmail.com",
+            "name": "wstux",
+            "username": "wstux"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d5ca3337706ae882b4d2f36d7dfa4ab8db0f217",
+          "message": "* all: #13 Merge remote-tracking branch 'wstux/feature/update' into master;",
+          "timestamp": "2026-11-26T00:23:36+03:00",
+          "tree_id": "e3908dc335619a191c619d1cac1f95b0fe371e57",
+          "url": "https://github.com/wstux/gut/commit/6d5ca3337706ae882b4d2f36d7dfa4ab8db0f217"
+        },
+        "date": 1795641888075,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "queue_fixture/perf_queue_create/real_time/threads:2",
+            "value": 55209.65176488896,
+            "unit": "ns/iter",
+            "extra": "iterations: 12862\ncpu: 55073.258435702075 ns\nthreads: 2"
+          },
+          {
+            "name": "queue_fixture/perf_queue_create/real_time/threads:4",
+            "value": 132751.16531947893,
+            "unit": "ns/iter",
+            "extra": "iterations: 5196\ncpu: 121897.85219399541 ns\nthreads: 4"
+          },
+          {
+            "name": "queue_fixture/perf_queue_create/real_time/threads:8",
+            "value": 242079.72818274968,
+            "unit": "ns/iter",
+            "extra": "iterations: 3896\ncpu: 138637.26796714583 ns\nthreads: 8"
+          },
+          {
+            "name": "queue_fixture/perf_queue_move/real_time/threads:1",
+            "value": 36486.179283900434,
+            "unit": "ns/iter",
+            "extra": "iterations: 19299\ncpu: 36410.71573656664 ns\nthreads: 1"
+          },
+          {
+            "name": "queue_fixture/perf_queue_move/real_time/threads:2",
+            "value": 55263.04462064712,
+            "unit": "ns/iter",
+            "extra": "iterations: 12864\ncpu: 55138.0330379352 ns\nthreads: 2"
+          },
+          {
+            "name": "queue_fixture/perf_queue_move/real_time/threads:4",
+            "value": 136596.95641321677,
+            "unit": "ns/iter",
+            "extra": "iterations: 5208\ncpu: 134340.4863671276 ns\nthreads: 4"
+          },
+          {
+            "name": "queue_fixture/perf_queue_move/real_time/threads:8",
+            "value": 187608.1419370239,
+            "unit": "ns/iter",
+            "extra": "iterations: 4192\ncpu: 124183.38501908387 ns\nthreads: 8"
+          },
+          {
+            "name": "queue_fixture/perf_queue_process_gut/real_time/threads:2",
+            "value": 104014.58522991162,
+            "unit": "ns/iter",
+            "extra": "iterations: 8612\ncpu: 77521.06990246168 ns\nthreads: 2"
+          },
+          {
+            "name": "queue_fixture/perf_queue_process_gut/real_time/threads:4",
+            "value": 174811.5171265481,
+            "unit": "ns/iter",
+            "extra": "iterations: 4204\ncpu: 171856.39747859177 ns\nthreads: 4"
+          },
+          {
+            "name": "queue_fixture/perf_queue_process_gut/real_time/threads:8",
+            "value": 400435.12114726985,
+            "unit": "ns/iter",
+            "extra": "iterations: 2336\ncpu: 199302.95676369924 ns\nthreads: 8"
+          },
+          {
+            "name": "perf_queue_empty_pop/real_time",
+            "value": 554.081453477994,
+            "unit": "ns/iter",
+            "extra": "iterations: 1260425\ncpu: 553.9551484618286 ns\nthreads: 1"
           }
         ]
       }
